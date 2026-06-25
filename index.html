@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>보소사진관 고객관리</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <span class="brand-mark">B</span>
+          <div>
+            <strong>보소사진관</strong>
+            <small>고객 · 예약 관리</small>
+          </div>
+        </div>
+        <nav class="nav">
+          <button class="nav-button active" data-view="dashboard">대시보드</button>
+          <button class="nav-button" data-view="customers">고객관리</button>
+          <button class="nav-button" data-view="reservations">예약관리</button>
+          <button class="nav-button" data-view="settings">연동/백업</button>
+        </nav>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1 id="pageTitle">대시보드</h1>
+            <p id="pageSubTitle">오늘 예약과 최근 방문 고객을 확인하세요.</p>
+          </div>
+          <button class="primary-button" id="openCustomerModal">+ 고객 등록</button>
+        </header>
+
+        <section class="view active" id="dashboardView">
+          <div class="metric-grid">
+            <article class="metric">
+              <span>전체 고객</span>
+              <strong id="totalCustomers">0</strong>
+            </article>
+            <article class="metric">
+              <span>전체 방문</span>
+              <strong id="totalVisits">0</strong>
+            </article>
+            <article class="metric">
+              <span>예정 예약</span>
+              <strong id="upcomingReservations">0</strong>
+            </article>
+            <article class="metric">
+              <span>미수 잔금</span>
+              <strong id="unpaidBalance">0원</strong>
+            </article>
+          </div>
+
+          <div class="revenue-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>월별 매출</h2>
+                <span class="badge" id="currentMonthRevenue">이번 달 0원</span>
+              </div>
+              <div class="revenue-chart" id="monthlyRevenueChart"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>이번 달 촬영별 매출</h2>
+                <span class="badge" id="currentMonthVisitCount">0건</span>
+              </div>
+              <div class="list" id="shootTypeRevenueList"></div>
+            </section>
+          </div>
+
+          <div class="split-layout">
+            <section class="panel">
+              <div class="panel-head">
+                <h2>오늘 예약</h2>
+                <button class="ghost-button" data-view-target="reservations">전체보기</button>
+              </div>
+              <div class="list" id="todayReservationList"></div>
+            </section>
+            <section class="panel">
+              <div class="panel-head">
+                <h2>최근 방문 기록</h2>
+                <button class="ghost-button" data-view-target="customers">고객관리</button>
+              </div>
+              <div class="list" id="recentVisitList"></div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="customersView">
+          <div class="toolbar">
+            <label class="search-box">
+              <span>검색</span>
+              <input id="customerSearch" placeholder="이름, 전화번호, 아이 이름, 고객번호" />
+            </label>
+            <select id="shootTypeFilter">
+              <option value="">촬영종류 전체</option>
+              <option>아기사진</option>
+              <option>가족사진</option>
+              <option>바디프로필</option>
+              <option>단체사진</option>
+              <option>증명/프로필</option>
+              <option>기타</option>
+            </select>
+          </div>
+          <div class="customer-layout">
+            <section class="panel customer-list-panel">
+              <div class="list customer-list" id="customerList"></div>
+            </section>
+            <section class="panel detail-panel" id="customerDetail">
+              <div class="empty-state">고객을 선택하면 방문 기록과 결제 내역이 보입니다.</div>
+            </section>
+          </div>
+        </section>
+
+        <section class="view" id="reservationsView">
+          <div class="toolbar">
+            <label>
+              <span>날짜</span>
+              <input type="date" id="reservationDateFilter" />
+            </label>
+            <label class="search-box">
+              <span>검색</span>
+              <input id="reservationSearch" placeholder="이름, 전화번호, 촬영종류" />
+            </label>
+            <button class="primary-button" id="openReservationModal">+ 예약 등록</button>
+          </div>
+          <section class="panel">
+            <div class="list reservation-list" id="reservationList"></div>
+          </section>
+        </section>
+
+        <section class="view" id="settingsView">
+          <section class="panel settings-panel">
+            <h2>Google Sheets 연동</h2>
+            <p class="muted">Google Apps Script 웹앱 URL을 넣으면 프로그램과 구글시트가 서로 데이터를 주고받습니다.</p>
+            <label>
+              <span>Apps Script 웹앱 URL</span>
+              <input id="sheetWebhookUrl" placeholder="https://script.google.com/macros/s/..." />
+            </label>
+            <div class="button-row">
+              <button class="primary-button" id="saveWebhook">저장</button>
+              <button class="secondary-button" id="pushSheets">시트로 보내기</button>
+              <button class="secondary-button" id="pullSheets">시트에서 가져오기</button>
+            </div>
+            <p class="muted">사진 파일은 브라우저 프로그램에 보관됩니다. 구글시트에는 사진 개수만 저장됩니다.</p>
+            <pre class="script-box" id="appsScriptCode"></pre>
+          </section>
+
+          <section class="panel settings-panel">
+            <h2>백업</h2>
+            <p class="muted">브라우저를 바꾸거나 PC를 교체하기 전에는 JSON 백업을 받아두세요.</p>
+            <div class="button-row">
+              <button class="secondary-button" id="exportJson">JSON 백업</button>
+              <button class="secondary-button" id="exportCsv">CSV 내보내기</button>
+              <label class="file-button">
+                JSON 복원
+                <input type="file" id="importJson" accept="application/json" />
+              </label>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="customerModal">
+      <form method="dialog" class="modal-form" id="customerForm">
+        <div class="modal-head">
+          <h2>고객 등록</h2>
+          <button value="cancel" class="icon-button" type="button" data-close-modal="customerModal">×</button>
+        </div>
+        <div class="form-grid">
+          <label><span>고객명</span><input name="name" required /></label>
+          <label><span>전화번호</span><input name="phone" required /></label>
+          <label><span>아이 이름</span><input name="childName" /></label>
+          <label><span>생년월일/메모</span><input name="childInfo" placeholder="예: 2024.03.15, 첫돌" /></label>
+          <label class="wide"><span>고객 메모</span><textarea name="memo" rows="3"></textarea></label>
+        </div>
+        <div class="button-row end">
+          <button class="secondary-button" type="button" data-close-modal="customerModal">취소</button>
+          <button class="primary-button">저장</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="visitModal">
+      <form method="dialog" class="modal-form" id="visitForm">
+        <div class="modal-head">
+          <h2>방문/촬영 기록</h2>
+          <button value="cancel" class="icon-button" type="button" data-close-modal="visitModal">×</button>
+        </div>
+        <input type="hidden" name="customerId" />
+        <div class="form-grid">
+          <label><span>촬영일</span><input type="date" name="date" required /></label>
+          <label>
+            <span>촬영종류</span>
+            <select name="shootType" required>
+              <option>아기사진</option>
+              <option>가족사진</option>
+              <option>바디프로필</option>
+              <option>단체사진</option>
+              <option>증명/프로필</option>
+              <option>기타</option>
+            </select>
+          </label>
+          <label><span>예약금</span><input type="number" name="deposit" min="0" value="0" /></label>
+          <label><span>잔금</span><input type="number" name="balance" min="0" value="0" /></label>
+          <label>
+            <span>결제수단</span>
+            <select name="paymentMethod">
+              <option>계좌</option>
+              <option>카드</option>
+              <option>현금</option>
+              <option>혼합</option>
+              <option>미결제</option>
+            </select>
+          </label>
+          <label><span>결제받은 직원</span><input name="paymentStaff" /></label>
+          <label class="wide"><span>촬영/보정 메모</span><textarea name="memo" rows="3"></textarea></label>
+          <label class="wide"><span>보정 사진 업로드</span><input type="file" name="photos" accept="image/*" multiple /></label>
+        </div>
+        <div class="button-row end">
+          <button class="secondary-button" type="button" data-close-modal="visitModal">취소</button>
+          <button class="primary-button">저장</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="reservationModal">
+      <form method="dialog" class="modal-form" id="reservationForm">
+        <div class="modal-head">
+          <h2>예약 등록</h2>
+          <button value="cancel" class="icon-button" type="button" data-close-modal="reservationModal">×</button>
+        </div>
+        <div class="form-grid">
+          <label><span>고객 선택</span><select name="customerId" id="reservationCustomerSelect" required></select></label>
+          <label><span>예약일</span><input type="date" name="date" required /></label>
+          <label><span>시간</span><input type="time" name="time" required /></label>
+          <label>
+            <span>촬영종류</span>
+            <select name="shootType" required>
+              <option>아기사진</option>
+              <option>가족사진</option>
+              <option>바디프로필</option>
+              <option>단체사진</option>
+              <option>증명/프로필</option>
+              <option>기타</option>
+            </select>
+          </label>
+          <label><span>담당 직원</span><input name="staff" /></label>
+          <label>
+            <span>상태</span>
+            <select name="status">
+              <option>예약</option>
+              <option>촬영완료</option>
+              <option>취소</option>
+              <option>노쇼</option>
+            </select>
+          </label>
+          <label class="wide"><span>예약 메모</span><textarea name="memo" rows="3"></textarea></label>
+        </div>
+        <div class="button-row end">
+          <button class="secondary-button" type="button" data-close-modal="reservationModal">취소</button>
+          <button class="primary-button">저장</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast"></div>
+    <script src="app.js"></script>
+  </body>
+</html>
