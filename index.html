@@ -195,6 +195,7 @@
           <label><span>전화번호</span><input name="phone" required /></label>
           <label><span>아이 이름</span><input name="childName" /></label>
           <label><span>생년월일/메모</span><input name="childInfo" placeholder="예: 2024.03.15, 첫돌" /></label>
+          <label class="wide"><span>주소</span><input name="address" placeholder="택배/앨범 수령 주소" /></label>
           <label><span>첫 촬영일</span><input type="date" name="firstVisitDate" /></label>
           <label>
             <span>첫 촬영종류</span>
@@ -240,7 +241,8 @@
             </select>
           </label>
           <label class="wide"><span>촬영상품/패키지</span><input name="productName" placeholder="예: 돌상 패키지, 가족사진 20R" /></label>
-          <label><span>계약금</span><input type="number" name="deposit" min="0" value="0" /></label>
+          <label><span>총금액</span><input type="number" name="totalAmount" min="0" value="0" /></label>
+          <label><span>계약금 받은 금액</span><input type="number" name="deposit" min="0" value="0" /></label>
           <label>
             <span>계약금 결제방법</span>
             <select name="depositPaymentMethod">
@@ -252,7 +254,7 @@
             </select>
           </label>
           <label><span>계약금 받은 직원</span><input name="depositPaymentStaff" /></label>
-          <label><span>잔금</span><input type="number" name="balance" min="0" value="0" /></label>
+          <label><span>잔금 받은 금액</span><input type="number" name="balance" min="0" value="0" /></label>
           <label>
             <span>잔금 결제방법</span>
             <select name="balancePaymentMethod">
@@ -264,6 +266,15 @@
             </select>
           </label>
           <label><span>잔금 받은 직원</span><input name="balancePaymentStaff" /></label>
+          <label>
+            <span>택배여부</span>
+            <select name="deliveryStatus">
+              <option>없음</option>
+              <option>예정</option>
+              <option>발송완료</option>
+              <option>방문수령</option>
+            </select>
+          </label>
           <label class="wide"><span>촬영/보정 메모</span><textarea name="memo" rows="3"></textarea></label>
           <label class="wide"><span>보정 사진 업로드</span><input type="file" name="photos" accept="image/*" multiple /></label>
         </div>

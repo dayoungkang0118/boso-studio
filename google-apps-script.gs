@@ -140,19 +140,20 @@ function writeStudioData(data) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   writeSheet(ss, "Customers", [
-    ["고객번호", "고객명", "전화번호", "아이이름", "아이정보", "메모", "등록일"]
+    ["고객번호", "고객명", "전화번호", "아이이름", "아이정보", "주소", "메모", "등록일"]
   ], (data.customers || []).map(c => [
     c.id || "",
     c.name || "",
     c.phone || "",
     c.childName || "",
     c.childInfo || "",
+    c.address || "",
     c.memo || "",
     c.createdAt || ""
   ]));
 
   writeSheet(ss, "Visits", [
-    ["방문ID", "고객번호", "방문회차", "촬영일", "촬영종류", "촬영상품", "계약금", "계약금결제방법", "계약금직원", "잔금", "잔금결제방법", "잔금직원", "메모", "사진수", "등록일"]
+    ["방문ID", "고객번호", "방문회차", "촬영일", "촬영종류", "촬영상품", "총금액", "계약금받은금액", "계약금결제방법", "계약금직원", "잔금받은금액", "잔금결제방법", "잔금직원", "총받은금액", "남은금액", "정산상태", "택배여부", "메모", "사진수", "등록일"]
   ], (data.visits || []).map(v => [
     v.id || "",
     v.customerId || "",
@@ -160,12 +161,17 @@ function writeStudioData(data) {
     v.date || "",
     v.shootType || "",
     v.productName || "",
+    v.totalAmount || 0,
     v.deposit || 0,
     v.depositPaymentMethod || v.paymentMethod || "",
     v.depositPaymentStaff || v.paymentStaff || "",
     v.balance || 0,
     v.balancePaymentMethod || "",
     v.balancePaymentStaff || "",
+    getPaidAmount(v),
+    getRemainingAmount(v),
+    getSettlementStatus(v),
+    v.deliveryStatus || "없음",
     v.memo || "",
     (v.photos || []).length,
     v.createdAt || ""
@@ -198,6 +204,7 @@ function readStudioData() {
       phone: row["전화번호"] || "",
       childName: row["아이이름"] || "",
       childInfo: row["아이정보"] || "",
+      address: row["주소"] || "",
       memo: row["메모"] || "",
       createdAt: row["등록일"] || new Date().toISOString()
     })).filter(c => c.id || c.name || c.phone),
@@ -209,12 +216,14 @@ function readStudioData() {
       date: normalizeDate(row["촬영일"]),
       shootType: row["촬영종류"] || "",
       productName: row["촬영상품"] || "",
+      totalAmount: Number(row["총금액"] || 0),
       deposit: Number(row["계약금"] || row["예약금"] || 0),
       depositPaymentMethod: row["계약금결제방법"] || row["결제수단"] || "",
       depositPaymentStaff: row["계약금직원"] || row["결제직원"] || "",
       balance: Number(row["잔금"] || 0),
       balancePaymentMethod: row["잔금결제방법"] || "",
       balancePaymentStaff: row["잔금직원"] || "",
+      deliveryStatus: row["택배여부"] || "없음",
       memo: row["메모"] || "",
       photos: [],
       createdAt: row["등록일"] || new Date().toISOString()
@@ -244,6 +253,18 @@ function writeSheet(ss, name, header, rows) {
   sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
   sheet.setFrozenRows(1);
   sheet.autoResizeColumns(1, values[0].length);
+}
+
+function getPaidAmount(visit) {
+  return Number(visit.deposit || 0) + Number(visit.balance || 0);
+}
+
+function getRemainingAmount(visit) {
+  return Math.max(Number(visit.totalAmount || 0) - getPaidAmount(visit), 0);
+}
+
+function getSettlementStatus(visit) {
+  return getRemainingAmount(visit) <= 0 ? "정산완료" : "잔금있음";
 }
 
 function readRows(ss, name) {

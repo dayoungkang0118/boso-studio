@@ -88,14 +88,19 @@ function migrateState() {
       idMap.set(customer.id, nextId);
       customer.id = nextId;
     }
+    customer.address = customer.address || "";
   });
 
   state.visits.forEach((visit) => {
     if (idMap.has(visit.customerId)) visit.customerId = idMap.get(visit.customerId);
+    visit.totalAmount = Number(visit.totalAmount || Number(visit.deposit || 0) + Number(visit.balance || 0));
+    visit.deposit = Number(visit.deposit || 0);
+    visit.balance = Number(visit.balance || 0);
     visit.depositPaymentMethod = visit.depositPaymentMethod || visit.paymentMethod || "미결제";
     visit.depositPaymentStaff = visit.depositPaymentStaff || visit.paymentStaff || "";
     visit.balancePaymentMethod = visit.balancePaymentMethod || "미결제";
     visit.balancePaymentStaff = visit.balancePaymentStaff || "";
+    visit.deliveryStatus = visit.deliveryStatus || "없음";
   });
 
   state.reservations.forEach((reservation) => {
@@ -112,6 +117,7 @@ function seedSampleData() {
       phone: "010-1234-5678",
       childName: "서아",
       childInfo: "2025.02.10",
+      address: "서울시 강남구 샘플로 10",
       memo: "돌사진 문의 많음",
       createdAt: new Date().toISOString(),
     },
@@ -124,12 +130,14 @@ function seedSampleData() {
       date: today,
       shootType: "아기사진",
       productName: "돌상 패키지",
+      totalAmount: 200000,
       deposit: 50000,
       balance: 150000,
       depositPaymentMethod: "계좌",
       depositPaymentStaff: "대표",
       balancePaymentMethod: "미결제",
       balancePaymentStaff: "",
+      deliveryStatus: "예정",
       memo: "첫 방문. 밝은 배경 선호.",
       photos: [],
       createdAt: new Date().toISOString(),
@@ -227,7 +235,7 @@ function renderDashboard() {
   $("#totalCustomers").textContent = state.customers.length;
   $("#totalVisits").textContent = state.visits.length;
   $("#upcomingReservations").textContent = state.reservations.filter((r) => r.status === "예약" && r.date >= toDateInput(new Date())).length;
-  $("#unpaidBalance").textContent = formatWon(state.visits.reduce((sum, visit) => sum + Number(visit.balance || 0), 0));
+  $("#unpaidBalance").textContent = formatWon(state.visits.reduce((sum, visit) => sum + getRemainingAmount(visit), 0));
   $("#currentMonthRevenue").textContent = `이번 달 ${formatWon(revenue.currentMonthTotal)}`;
   $("#currentMonthVisitCount").textContent = `${revenue.currentMonthVisitCount}건`;
   $("#monthlyRevenueChart").innerHTML = renderMonthlyRevenueChart(revenue.monthly);
@@ -318,7 +326,7 @@ function renderCustomers() {
 
   const customers = state.customers.filter((customer) => {
     const visitText = getVisits(customer.id).map((visit) => [visit.date, visit.shootType, visit.productName, visit.memo].join(" ")).join(" ");
-    const haystack = normalize([customer.id, customer.name, customer.phone, customer.childName, customer.childInfo, customer.memo, visitText].join(" "));
+    const haystack = normalize([customer.id, customer.name, customer.phone, customer.childName, customer.childInfo, customer.address, customer.memo, visitText].join(" "));
     const matchesQuery = !query || haystack.includes(query);
     const matchesShoot = !shootType || state.visits.some((visit) => visit.customerId === customer.id && visit.shootType === shootType);
     return matchesQuery && matchesShoot;
@@ -356,6 +364,7 @@ function renderCustomerListItem(customer) {
         <div>
           <div class="item-title">${escapeHtml(customer.name)} <span class="badge">${customer.id}</span></div>
           <div class="item-meta">${escapeHtml(customer.phone)} · 아이: ${escapeHtml(customer.childName || "-")}</div>
+          ${customer.address ? `<div class="item-meta">주소: ${escapeHtml(customer.address)}</div>` : ""}
           <div class="item-meta fixed-first-shoot">첫 촬영: ${firstVisit ? `${formatDate(firstVisit.date)} · ${escapeHtml(firstVisit.shootType)}${firstVisit.productName ? ` · ${escapeHtml(firstVisit.productName)}` : ""}` : "기록 없음"}</div>
         </div>
         <span class="badge ${visits.length > 1 ? "done" : ""}">${visits.length}회</span>
@@ -382,6 +391,7 @@ function renderCustomerDetail() {
       <div class="detail-title">
         <h2>${escapeHtml(customer.name)} <span class="badge">${customer.id}</span></h2>
         <p class="muted">${escapeHtml(customer.phone)} · 아이: ${escapeHtml(customer.childName || "-")}</p>
+        ${customer.address ? `<p class="muted">주소: ${escapeHtml(customer.address)}</p>` : ""}
       </div>
       <button class="primary-button" id="addVisit">+ 방문 기록</button>
     </div>
@@ -415,18 +425,23 @@ function renderVisitDetail(visit) {
   const photoMarkup = visit.photos?.length
     ? `<div class="photo-grid">${visit.photos.map((photo) => `<img src="${photo.dataUrl}" alt="${escapeHtml(photo.name)}" />`).join("")}</div>`
     : "";
+  const paidAmount = getPaidAmount(visit);
+  const remainingAmount = getRemainingAmount(visit);
+  const settlementStatus = getSettlementStatus(visit);
   return `
     <article class="list-item visit-card">
       <div class="item-top">
         <div>
           <div class="item-title">${visit.visitNo}번째 방문 · ${escapeHtml(visit.shootType)}${visit.productName ? ` · ${escapeHtml(visit.productName)}` : ""}</div>
-          <div class="item-meta">${formatDate(visit.date)} · 계약금 ${formatWon(visit.deposit)} · 잔금 ${formatWon(visit.balance)}</div>
+          <div class="item-meta">${formatDate(visit.date)} · 총금액 ${formatWon(visit.totalAmount)} · 총 받은 금액 ${formatWon(paidAmount)} · 남은 금액 ${formatWon(remainingAmount)}</div>
         </div>
-        <span class="badge ${Number(visit.balance) > 0 ? "warning" : "done"}">${Number(visit.balance) > 0 ? "잔금있음" : "정산완료"}</span>
+        <span class="badge ${settlementStatus === "정산완료" ? "done" : "warning"}">${settlementStatus}</span>
       </div>
       <div class="payment-breakdown">
-        <div><strong>계약금</strong> ${formatWon(visit.deposit)} · ${escapeHtml(visit.depositPaymentMethod || visit.paymentMethod || "-")} · ${escapeHtml(visit.depositPaymentStaff || visit.paymentStaff || "-")}</div>
-        <div><strong>잔금</strong> ${formatWon(visit.balance)} · ${escapeHtml(visit.balancePaymentMethod || "-")} · ${escapeHtml(visit.balancePaymentStaff || "-")}</div>
+        <div><strong>총금액</strong> ${formatWon(visit.totalAmount)} · <strong>총 받은 금액</strong> ${formatWon(paidAmount)}</div>
+        <div><strong>계약금 받은 금액</strong> ${formatWon(visit.deposit)} · ${escapeHtml(visit.depositPaymentMethod || visit.paymentMethod || "-")} · ${escapeHtml(visit.depositPaymentStaff || visit.paymentStaff || "-")}</div>
+        <div><strong>잔금 받은 금액</strong> ${formatWon(visit.balance)} · ${escapeHtml(visit.balancePaymentMethod || "-")} · ${escapeHtml(visit.balancePaymentStaff || "-")}</div>
+        <div><strong>택배여부</strong> ${escapeHtml(visit.deliveryStatus || "없음")}</div>
       </div>
       ${visit.memo ? `<div class="item-meta">${escapeHtml(visit.memo)}</div>` : ""}
       ${photoMarkup}
@@ -447,12 +462,14 @@ function openVisitEditor(visitId) {
   form.date.value = visit.date || "";
   form.shootType.value = visit.shootType || "아기사진";
   form.productName.value = visit.productName || "";
+  form.totalAmount.value = visit.totalAmount || 0;
   form.deposit.value = visit.deposit || 0;
   form.depositPaymentMethod.value = visit.depositPaymentMethod || visit.paymentMethod || "미결제";
   form.depositPaymentStaff.value = visit.depositPaymentStaff || visit.paymentStaff || "";
   form.balance.value = visit.balance || 0;
   form.balancePaymentMethod.value = visit.balancePaymentMethod || "미결제";
   form.balancePaymentStaff.value = visit.balancePaymentStaff || "";
+  form.deliveryStatus.value = visit.deliveryStatus || "없음";
   form.memo.value = visit.memo || "";
   $("#visitModal").showModal();
 }
@@ -512,6 +529,7 @@ function handleCustomerSubmit(event) {
     phone: form.get("phone").trim(),
     childName: form.get("childName").trim(),
     childInfo: form.get("childInfo").trim(),
+    address: form.get("address").trim(),
     memo: form.get("memo").trim(),
     createdAt: new Date().toISOString(),
   };
@@ -525,12 +543,14 @@ function handleCustomerSubmit(event) {
       date: form.get("firstVisitDate"),
       shootType: form.get("firstShootType"),
       productName: form.get("firstProductName").trim(),
+      totalAmount: 0,
       deposit: 0,
       balance: 0,
       depositPaymentMethod: "미결제",
       depositPaymentStaff: "",
       balancePaymentMethod: "미결제",
       balancePaymentStaff: "",
+      deliveryStatus: "없음",
       memo: "고객 등록 시 입력한 첫 촬영 기록",
       photos: [],
       createdAt: new Date().toISOString(),
@@ -558,12 +578,14 @@ async function handleVisitSubmit(event) {
     date: form.get("date"),
     shootType: form.get("shootType"),
     productName: form.get("productName").trim(),
+    totalAmount: Number(form.get("totalAmount") || 0),
     deposit: Number(form.get("deposit") || 0),
     balance: Number(form.get("balance") || 0),
     depositPaymentMethod: form.get("depositPaymentMethod"),
     depositPaymentStaff: form.get("depositPaymentStaff").trim(),
     balancePaymentMethod: form.get("balancePaymentMethod"),
     balancePaymentStaff: form.get("balancePaymentStaff").trim(),
+    deliveryStatus: form.get("deliveryStatus"),
     memo: form.get("memo").trim(),
     photos: photos.length ? [...(existingVisit?.photos || []), ...photos] : existingVisit?.photos || [],
     createdAt: existingVisit?.createdAt || new Date().toISOString(),
@@ -670,12 +692,14 @@ async function pullSheets() {
       createdAt: new Date().toISOString(),
       ...visit,
       id: visit.id || newId(),
+      totalAmount: Number(visit.totalAmount || Number(visit.deposit || 0) + Number(visit.balance || 0)),
       deposit: Number(visit.deposit || 0),
       balance: Number(visit.balance || 0),
       depositPaymentMethod: visit.depositPaymentMethod || visit.paymentMethod || "미결제",
       depositPaymentStaff: visit.depositPaymentStaff || visit.paymentStaff || "",
       balancePaymentMethod: visit.balancePaymentMethod || "미결제",
       balancePaymentStaff: visit.balancePaymentStaff || "",
+      deliveryStatus: visit.deliveryStatus || "없음",
     }));
     state.reservations = (data.reservations || []).map((reservation) => ({
       createdAt: new Date().toISOString(),
@@ -776,7 +800,7 @@ function exportJson() {
 }
 
 function exportCsv() {
-  const rows = [["고객번호", "고객명", "전화번호", "아이이름", "방문회차", "촬영일", "촬영종류", "촬영상품", "계약금", "계약금결제방법", "계약금직원", "잔금", "잔금결제방법", "잔금직원"]];
+  const rows = [["고객번호", "고객명", "전화번호", "아이이름", "주소", "방문회차", "촬영일", "촬영종류", "촬영상품", "총금액", "계약금받은금액", "계약금결제방법", "계약금직원", "잔금받은금액", "잔금결제방법", "잔금직원", "총받은금액", "남은금액", "정산상태", "택배여부"]];
   state.visits.forEach((visit) => {
     const customer = getCustomer(visit.customerId) || {};
     rows.push([
@@ -784,16 +808,22 @@ function exportCsv() {
       customer.name || "",
       customer.phone || "",
       customer.childName || "",
+      customer.address || "",
       visit.visitNo,
       visit.date,
       visit.shootType,
       visit.productName || "",
+      visit.totalAmount || 0,
       visit.deposit,
       visit.depositPaymentMethod || visit.paymentMethod || "",
       visit.depositPaymentStaff || visit.paymentStaff || "",
       visit.balance,
       visit.balancePaymentMethod || "",
       visit.balancePaymentStaff || "",
+      getPaidAmount(visit),
+      getRemainingAmount(visit),
+      getSettlementStatus(visit),
+      visit.deliveryStatus || "없음",
     ]);
   });
   const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
@@ -873,7 +903,19 @@ function formatCompactWon(value) {
 }
 
 function getVisitRevenue(visit) {
+  return Number(visit.totalAmount || 0) || getPaidAmount(visit);
+}
+
+function getPaidAmount(visit) {
   return Number(visit.deposit || 0) + Number(visit.balance || 0);
+}
+
+function getRemainingAmount(visit) {
+  return Math.max(Number(visit.totalAmount || 0) - getPaidAmount(visit), 0);
+}
+
+function getSettlementStatus(visit) {
+  return getRemainingAmount(visit) <= 0 ? "정산완료" : "잔금있음";
 }
 
 function formatDate(value) {
