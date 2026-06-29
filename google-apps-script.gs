@@ -16,11 +16,123 @@ function doGet(e) {
 
 function doPost(e) {
   const data = JSON.parse(e.postData.contents);
+
+  if (data.action === "syncCalendar") {
+    const result = syncReservationsToCalendar(data);
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: true, result: result }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   writeStudioData(data);
 
   return ContentService
     .createTextOutput(JSON.stringify({ ok: true, savedAt: new Date().toISOString() }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function syncReservationsToCalendar(data) {
+  const calendar = getTargetCalendar(data.calendarId);
+  const reservations = data.reservations || [];
+  const durationMinutes = Number(data.eventDurationMinutes || 60);
+  const eventMap = getExistingReservationEvents(calendar);
+  const result = { created: 0, updated: 0, deleted: 0, skipped: 0 };
+
+  reservations.forEach(reservation => {
+    if (!reservation.id || !reservation.date || !reservation.time) {
+      result.skipped += 1;
+      return;
+    }
+
+    const existing = eventMap[reservation.id];
+
+    if (reservation.status === "취소") {
+      if (existing) {
+        existing.deleteEvent();
+        result.deleted += 1;
+      } else {
+        result.skipped += 1;
+      }
+      return;
+    }
+
+    const start = parseDateTime(reservation.date, reservation.time);
+    const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+    const title = buildCalendarTitle(reservation);
+    const description = buildCalendarDescription(reservation);
+
+    if (existing) {
+      existing.setTitle(title);
+      existing.setTime(start, end);
+      existing.setDescription(description);
+      existing.setTag("bosoReservationId", reservation.id);
+      result.updated += 1;
+    } else {
+      const event = calendar.createEvent(title, start, end, { description: description });
+      event.setTag("bosoReservationId", reservation.id);
+      result.created += 1;
+    }
+  });
+
+  return result;
+}
+
+function getTargetCalendar(calendarId) {
+  if (!calendarId || calendarId === "primary") {
+    return CalendarApp.getDefaultCalendar();
+  }
+
+  const calendar = CalendarApp.getCalendarById(calendarId);
+  if (!calendar) {
+    throw new Error("Calendar not found: " + calendarId);
+  }
+  return calendar;
+}
+
+function getExistingReservationEvents(calendar) {
+  const now = new Date();
+  const rangeStart = new Date(now.getFullYear() - 1, 0, 1);
+  const rangeEnd = new Date(now.getFullYear() + 2, 11, 31);
+  const events = calendar.getEvents(rangeStart, rangeEnd);
+  const map = {};
+
+  events.forEach(event => {
+    const reservationId = event.getTag("bosoReservationId");
+    if (reservationId) {
+      map[reservationId] = event;
+    }
+  });
+
+  return map;
+}
+
+function buildCalendarTitle(reservation) {
+  const name = reservation.customerName || "고객";
+  const type = reservation.shootType || "촬영";
+  return "[보소사진관] " + name + " - " + type;
+}
+
+function buildCalendarDescription(reservation) {
+  return [
+    "고객명: " + (reservation.customerName || ""),
+    "전화번호: " + (reservation.customerPhone || ""),
+    "아이 이름: " + (reservation.childName || ""),
+    "촬영종류: " + (reservation.shootType || ""),
+    "담당 직원: " + (reservation.staff || ""),
+    "상태: " + (reservation.status || ""),
+    "예약ID: " + (reservation.id || ""),
+    "",
+    "메모:",
+    reservation.memo || ""
+  ].join("\n");
+}
+
+function parseDateTime(dateValue, timeValue) {
+  const date = normalizeDate(dateValue);
+  const time = normalizeTime(timeValue) || "00:00";
+  const parts = date.split("-").map(Number);
+  const timeParts = time.split(":").map(Number);
+  return new Date(parts[0], parts[1] - 1, parts[2], timeParts[0] || 0, timeParts[1] || 0);
 }
 
 function writeStudioData(data) {

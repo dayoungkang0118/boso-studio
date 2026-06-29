@@ -9,6 +9,8 @@ const state = {
   reservations: [],
   settings: {
     sheetWebhookUrl: "",
+    calendarId: "",
+    calendarDuration: 60,
   },
   selectedCustomerId: null,
 };
@@ -122,6 +124,8 @@ async function init() {
   await loadState();
   loadAppsScriptSample();
   $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || "";
+  $("#calendarId").value = state.settings.calendarId || "";
+  $("#calendarDuration").value = state.settings.calendarDuration || 60;
   $("#reservationDateFilter").value = "";
 
   bindEvents();
@@ -163,8 +167,10 @@ function bindEvents() {
   $("#reservationForm").addEventListener("submit", handleReservationSubmit);
 
   $("#saveWebhook").addEventListener("click", saveWebhook);
+  $("#saveCalendarSettings").addEventListener("click", saveCalendarSettings);
   $("#pushSheets").addEventListener("click", pushSheets);
   $("#pullSheets").addEventListener("click", pullSheets);
+  $("#pushCalendar").addEventListener("click", pushCalendar);
   $("#exportJson").addEventListener("click", exportJson);
   $("#exportCsv").addEventListener("click", exportCsv);
   $("#importJson").addEventListener("change", importJson);
@@ -501,8 +507,16 @@ function fillCustomerSelect() {
 
 function saveWebhook() {
   state.settings.sheetWebhookUrl = $("#sheetWebhookUrl").value.trim();
+  saveCalendarSettings(false);
   saveState();
   showToast("연동 URL이 저장되었습니다.");
+}
+
+function saveCalendarSettings(showMessage = true) {
+  state.settings.calendarId = $("#calendarId").value.trim();
+  state.settings.calendarDuration = Number($("#calendarDuration").value || 60);
+  saveState();
+  if (showMessage) showToast("캘린더 설정이 저장되었습니다.");
 }
 
 async function pushSheets() {
@@ -565,6 +579,44 @@ async function pullSheets() {
     showToast("Google Sheets 데이터를 가져왔습니다.");
   } catch {
     showToast("가져오기에 실패했습니다. Apps Script 배포 상태를 확인하세요.");
+  }
+}
+
+async function pushCalendar() {
+  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim();
+  if (!url) {
+    showToast("Apps Script 웹앱 URL을 먼저 입력하세요.");
+    return;
+  }
+
+  saveCalendarSettings(false);
+
+  const payload = {
+    action: "syncCalendar",
+    calendarId: state.settings.calendarId,
+    eventDurationMinutes: state.settings.calendarDuration || 60,
+    reservations: state.reservations.map((reservation) => {
+      const customer = getCustomer(reservation.customerId);
+      return {
+        ...reservation,
+        customerName: customer?.name || "",
+        customerPhone: customer?.phone || "",
+        childName: customer?.childName || "",
+      };
+    }),
+    syncedAt: new Date().toISOString(),
+  };
+
+  try {
+    await fetch(url, {
+      method: "POST",
+      mode: "no-cors",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload),
+    });
+    showToast("Google Calendar로 예약을 전송했습니다.");
+  } catch {
+    showToast("캘린더 전송에 실패했습니다. Apps Script 권한을 확인하세요.");
   }
 }
 
@@ -646,9 +698,17 @@ function importJson(event) {
       state.customers = imported.customers || [];
       state.visits = imported.visits || [];
       state.reservations = imported.reservations || [];
-      state.settings = imported.settings || { sheetWebhookUrl: "" };
+      state.settings = {
+        sheetWebhookUrl: "",
+        calendarId: "",
+        calendarDuration: 60,
+        ...(imported.settings || {}),
+      };
       state.selectedCustomerId = null;
       saveState();
+      $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || "";
+      $("#calendarId").value = state.settings.calendarId || "";
+      $("#calendarDuration").value = state.settings.calendarDuration || 60;
       renderAll();
       showToast("백업을 복원했습니다.");
     } catch {

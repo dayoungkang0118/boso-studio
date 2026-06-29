@@ -24,6 +24,7 @@ python -m http.server 5173 --bind 127.0.0.1
 - 보정 사진 업로드와 방문 기록 연결
 - JSON 백업/복원, CSV 내보내기
 - Google Sheets 양방향 연동
+- Google Calendar 예약 동기화
 
 ## Google Sheets 연동
 
@@ -32,6 +33,7 @@ python -m http.server 5173 --bind 127.0.0.1
 
 - 시트로 보내기
 - 시트에서 가져오기
+- 예약을 캘린더로 보내기
 
 자세한 방법은 `구글시트_연동방법.txt`를 참고하세요.
 
