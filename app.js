@@ -597,7 +597,7 @@ async function handleVisitSubmit(event) {
   showToast(existingVisit ? "촬영 기록이 수정되었습니다." : "방문 기록이 저장되었습니다.");
 }
 
-function handleReservationSubmit(event) {
+async function handleReservationSubmit(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const reservation = {
@@ -618,7 +618,8 @@ function handleReservationSubmit(event) {
   $("#reservationModal").close();
   renderAll();
   switchView("reservations");
-  showToast("예약이 등록되었습니다.");
+  const calendarSynced = await syncCalendarAfterReservation();
+  showToast(calendarSynced ? "예약이 등록되고 Google Calendar에 전송되었습니다." : "예약이 등록되었습니다.");
 }
 
 function fillCustomerSelect() {
@@ -710,10 +711,11 @@ async function pullSheets() {
   }
 }
 
-async function pushCalendar() {
+async function pushCalendar(options = {}) {
+  const silent = Boolean(options.silent);
   const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim();
   if (!url) {
-    showToast("Apps Script 웹앱 URL을 먼저 입력하세요.");
+    if (!silent) showToast("Apps Script 웹앱 URL을 먼저 입력하세요.");
     return;
   }
 
@@ -742,10 +744,18 @@ async function pushCalendar() {
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload),
     });
-    showToast("Google Calendar로 예약을 전송했습니다.");
+    if (!silent) showToast("Google Calendar로 예약을 전송했습니다.");
+    return true;
   } catch {
-    showToast("캘린더 전송에 실패했습니다. Apps Script 권한을 확인하세요.");
+    if (!silent) showToast("캘린더 전송에 실패했습니다. Apps Script 권한을 확인하세요.");
+    return false;
   }
+}
+
+async function syncCalendarAfterReservation() {
+  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim();
+  if (!url) return false;
+  return Boolean(await pushCalendar({ silent: true }));
 }
 
 function fetchSheetJsonp(url) {
