@@ -354,6 +354,34 @@ textarea {
   line-height: 1.45;
 }
 
+.fixed-first-shoot {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.shoot-history {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.shoot-history-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.shoot-history-no {
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -401,7 +429,7 @@ textarea {
 
 .detail-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin-bottom: 18px;
 }

@@ -311,8 +311,15 @@ function renderCustomers() {
 }
 
 function renderCustomerListItem(customer) {
-  const visits = getVisits(customer.id).sort((a, b) => b.date.localeCompare(a.date));
-  const latestVisit = visits[0];
+  const visits = getVisits(customer.id).sort((a, b) => a.date.localeCompare(b.date));
+  const firstVisit = visits[0];
+  const visitTimeline = visits.length
+    ? visits.map((visit) => `
+      <div class="shoot-history-row">
+        <span class="shoot-history-no">${visit.visitNo}회</span>
+        <span>${formatDate(visit.date)} · ${escapeHtml(visit.shootType)}${visit.productName ? ` · ${escapeHtml(visit.productName)}` : ""}</span>
+      </div>`).join("")
+    : `<div class="shoot-history-row muted">촬영 기록 없음</div>`;
   const selected = state.selectedCustomerId === customer.id ? " selected" : "";
   return `
     <article class="list-item clickable customer-card${selected}" data-customer-id="${customer.id}">
@@ -320,10 +327,11 @@ function renderCustomerListItem(customer) {
         <div>
           <div class="item-title">${escapeHtml(customer.name)} <span class="badge">${customer.id}</span></div>
           <div class="item-meta">${escapeHtml(customer.phone)} · 아이: ${escapeHtml(customer.childName || "-")}</div>
-          <div class="item-meta">최근 촬영: ${latestVisit ? `${formatDate(latestVisit.date)} · ${escapeHtml(latestVisit.shootType)}${latestVisit.productName ? ` · ${escapeHtml(latestVisit.productName)}` : ""}` : "기록 없음"}</div>
+          <div class="item-meta fixed-first-shoot">첫 촬영: ${firstVisit ? `${formatDate(firstVisit.date)} · ${escapeHtml(firstVisit.shootType)}${firstVisit.productName ? ` · ${escapeHtml(firstVisit.productName)}` : ""}` : "기록 없음"}</div>
         </div>
         <span class="badge ${visits.length > 1 ? "done" : ""}">${visits.length}회</span>
       </div>
+      <div class="shoot-history">${visitTimeline}</div>
     </article>`;
 }
 
@@ -335,6 +343,7 @@ function renderCustomerDetail() {
   }
 
   const visits = getVisits(customer.id).sort((a, b) => b.date.localeCompare(a.date));
+  const firstVisit = [...visits].sort((a, b) => a.date.localeCompare(b.date))[0];
   const reservations = state.reservations
     .filter((item) => item.customerId === customer.id)
     .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`));
@@ -349,6 +358,7 @@ function renderCustomerDetail() {
     </div>
     <div class="detail-grid">
       <div class="info-box"><span>총 방문</span><strong>${visits.length}회</strong></div>
+      <div class="info-box"><span>첫 촬영</span><strong>${firstVisit ? `${formatDate(firstVisit.date)} · ${escapeHtml(firstVisit.shootType)}` : "-"}</strong></div>
       <div class="info-box"><span>최근 촬영</span><strong>${visits[0] ? `${formatDate(visits[0].date)} · ${escapeHtml(visits[0].shootType)}` : "-"}</strong></div>
       <div class="info-box"><span>아이 정보</span><strong>${escapeHtml(customer.childInfo || "-")}</strong></div>
     </div>
