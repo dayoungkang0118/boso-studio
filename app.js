@@ -619,8 +619,8 @@ async function handleReservationSubmit(event) {
   $("#reservationModal").close();
   renderAll();
   switchView("reservations");
-  const calendarSynced = await syncCalendarAfterReservation();
-  showToast(calendarSynced ? "예약이 등록되고 Google Calendar에 전송되었습니다." : "예약이 등록되었습니다.");
+  const calendarSynced = await syncCalendarAfterReservation(reservation);
+  showToast(calendarSynced ? "예약이 등록되고 Google Calendar에 전송되었습니다." : "예약은 등록됐지만 Google Calendar 전송은 실패했습니다.");
 }
 
 function fillCustomerSelect() {
@@ -754,10 +754,56 @@ async function pushCalendar(options = {}) {
   }
 }
 
-async function syncCalendarAfterReservation() {
+async function syncCalendarAfterReservation(reservation) {
   const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim();
   if (!url) return false;
-  return Boolean(await pushCalendar({ silent: true }));
+  const customer = getCustomer(reservation.customerId);
+  const payload = {
+    ...reservation,
+    customerName: customer?.name || "",
+    customerPhone: customer?.phone || "",
+    childName: customer?.childName || "",
+  };
+
+  try {
+    const result = await fetchCalendarReservationJsonp(url, payload);
+    return Boolean(result?.ok);
+  } catch {
+    return false;
+  }
+}
+
+function fetchCalendarReservationJsonp(url, reservation) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `bosoCalendarCallback${Date.now()}`;
+    const script = document.createElement("script");
+    const separator = url.includes("?") ? "&" : "?";
+    const payload = encodeBase64Url(JSON.stringify(reservation));
+    const calendarId = encodeURIComponent(normalizeCalendarId(state.settings.calendarId) || DEFAULT_CALENDAR_ID);
+    const duration = encodeURIComponent(state.settings.calendarDuration || 60);
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Google Calendar request timed out"));
+    }, 15000);
+
+    window[callbackName] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+
+    function cleanup() {
+      window.clearTimeout(timer);
+      delete window[callbackName];
+      script.remove();
+    }
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Google Calendar request failed"));
+    };
+    script.src = `${url}${separator}action=syncCalendarReservation&calendarId=${calendarId}&eventDurationMinutes=${duration}&payload=${payload}&callback=${callbackName}&ts=${Date.now()}`;
+    document.body.appendChild(script);
+  });
 }
 
 function fetchSheetJsonp(url) {
@@ -936,6 +982,13 @@ function normalizeCalendarId(value) {
   }
 
   return trimmed;
+}
+
+function encodeBase64Url(value) {
+  return btoa(unescape(encodeURIComponent(value)))
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
 }
 
 function decodeBase64Url(value) {

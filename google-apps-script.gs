@@ -1,19 +1,19 @@
 const DEFAULT_CALENDAR_ID = "cf68d0dee8e4775e5f4ccd99b64727c9932f5512b08e8e7f8aa04ade1df853a0@group.calendar.google.com";
 
 function doGet(e) {
-  const data = readStudioData();
-  const json = JSON.stringify(data);
-  const callback = e && e.parameter && e.parameter.callback;
-
-  if (callback) {
-    return ContentService
-      .createTextOutput(callback + "(" + json + ");")
-      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  if (e && e.parameter && e.parameter.action === "syncCalendarReservation") {
+    const payload = JSON.parse(Utilities.newBlob(Utilities.base64DecodeWebSafe(e.parameter.payload)).getDataAsString("UTF-8"));
+    const result = syncReservationsToCalendar({
+      calendarId: e.parameter.calendarId || DEFAULT_CALENDAR_ID,
+      eventDurationMinutes: Number(e.parameter.eventDurationMinutes || 60),
+      reservations: [payload]
+    });
+    return jsonResponse_({ ok: true, result: result }, e.parameter.callback);
   }
 
-  return ContentService
-    .createTextOutput(json)
-    .setMimeType(ContentService.MimeType.JSON);
+  const data = readStudioData();
+  const callback = e && e.parameter && e.parameter.callback;
+  return jsonResponse_(data, callback);
 }
 
 function doPost(e) {
@@ -267,6 +267,19 @@ function getRemainingAmount(visit) {
 
 function getSettlementStatus(visit) {
   return getRemainingAmount(visit) <= 0 ? "정산완료" : "잔금있음";
+}
+
+function jsonResponse_(data, callback) {
+  const json = JSON.stringify(data);
+  if (callback) {
+    return ContentService
+      .createTextOutput(callback + "(" + json + ");")
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  }
+
+  return ContentService
+    .createTextOutput(json)
+    .setMimeType(ContentService.MimeType.JSON);
 }
 
 function readRows(ss, name) {
