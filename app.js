@@ -96,8 +96,8 @@ function migrateState() {
     visit.totalAmount = Number(visit.totalAmount || Number(visit.deposit || 0) + Number(visit.balance || 0));
     visit.deposit = Number(visit.deposit || 0);
     visit.balance = Number(visit.balance || 0);
-    visit.depositPaymentMethod = visit.depositPaymentMethod || visit.paymentMethod || "미결제";
-    visit.depositPaymentStaff = visit.depositPaymentStaff || visit.paymentStaff || "";
+    visit.depositPaymentMethod = Number(visit.deposit || 0) > 0 ? "계좌" : "미결제";
+    delete visit.depositPaymentStaff;
     visit.balancePaymentMethod = visit.balancePaymentMethod || "미결제";
     visit.balancePaymentStaff = visit.balancePaymentStaff || "";
     visit.deliveryStatus = visit.deliveryStatus || "없음";
@@ -134,7 +134,6 @@ function seedSampleData() {
       deposit: 50000,
       balance: 150000,
       depositPaymentMethod: "계좌",
-      depositPaymentStaff: "대표",
       balancePaymentMethod: "미결제",
       balancePaymentStaff: "",
       deliveryStatus: "예정",
@@ -439,7 +438,7 @@ function renderVisitDetail(visit) {
       </div>
       <div class="payment-breakdown">
         <div><strong>총금액</strong> ${formatWon(visit.totalAmount)} · <strong>총 받은 금액</strong> ${formatWon(paidAmount)}</div>
-        <div><strong>계약금 받은 금액</strong> ${formatWon(visit.deposit)} · ${escapeHtml(visit.depositPaymentMethod || visit.paymentMethod || "-")} · ${escapeHtml(visit.depositPaymentStaff || visit.paymentStaff || "-")}</div>
+        <div><strong>계약금 받은 금액</strong> ${formatWon(visit.deposit)} · ${escapeHtml(visit.depositPaymentMethod || "계좌")}</div>
         <div><strong>잔금 받은 금액</strong> ${formatWon(visit.balance)} · ${escapeHtml(visit.balancePaymentMethod || "-")} · ${escapeHtml(visit.balancePaymentStaff || "-")}</div>
         <div><strong>택배여부</strong> ${escapeHtml(visit.deliveryStatus || "없음")}</div>
       </div>
@@ -464,8 +463,6 @@ function openVisitEditor(visitId) {
   form.productName.value = visit.productName || "";
   form.totalAmount.value = visit.totalAmount || 0;
   form.deposit.value = visit.deposit || 0;
-  form.depositPaymentMethod.value = visit.depositPaymentMethod || visit.paymentMethod || "미결제";
-  form.depositPaymentStaff.value = visit.depositPaymentStaff || visit.paymentStaff || "";
   form.balance.value = visit.balance || 0;
   form.balancePaymentMethod.value = visit.balancePaymentMethod || "미결제";
   form.balancePaymentStaff.value = visit.balancePaymentStaff || "";
@@ -547,7 +544,6 @@ function handleCustomerSubmit(event) {
       deposit: 0,
       balance: 0,
       depositPaymentMethod: "미결제",
-      depositPaymentStaff: "",
       balancePaymentMethod: "미결제",
       balancePaymentStaff: "",
       deliveryStatus: "없음",
@@ -581,8 +577,7 @@ async function handleVisitSubmit(event) {
     totalAmount: Number(form.get("totalAmount") || 0),
     deposit: Number(form.get("deposit") || 0),
     balance: Number(form.get("balance") || 0),
-    depositPaymentMethod: form.get("depositPaymentMethod"),
-    depositPaymentStaff: form.get("depositPaymentStaff").trim(),
+    depositPaymentMethod: Number(form.get("deposit") || 0) > 0 ? "계좌" : "미결제",
     balancePaymentMethod: form.get("balancePaymentMethod"),
     balancePaymentStaff: form.get("balancePaymentStaff").trim(),
     deliveryStatus: form.get("deliveryStatus"),
@@ -695,8 +690,7 @@ async function pullSheets() {
       totalAmount: Number(visit.totalAmount || Number(visit.deposit || 0) + Number(visit.balance || 0)),
       deposit: Number(visit.deposit || 0),
       balance: Number(visit.balance || 0),
-      depositPaymentMethod: visit.depositPaymentMethod || visit.paymentMethod || "미결제",
-      depositPaymentStaff: visit.depositPaymentStaff || visit.paymentStaff || "",
+      depositPaymentMethod: Number(visit.deposit || 0) > 0 ? "계좌" : "미결제",
       balancePaymentMethod: visit.balancePaymentMethod || "미결제",
       balancePaymentStaff: visit.balancePaymentStaff || "",
       deliveryStatus: visit.deliveryStatus || "없음",
@@ -800,7 +794,7 @@ function exportJson() {
 }
 
 function exportCsv() {
-  const rows = [["고객번호", "고객명", "전화번호", "아이이름", "주소", "방문회차", "촬영일", "촬영종류", "촬영상품", "총금액", "계약금받은금액", "계약금결제방법", "계약금직원", "잔금받은금액", "잔금결제방법", "잔금직원", "총받은금액", "남은금액", "정산상태", "택배여부"]];
+  const rows = [["고객번호", "고객명", "전화번호", "아이이름", "주소", "방문회차", "촬영일", "촬영종류", "촬영상품", "총금액", "계약금받은금액", "계약금결제방법", "잔금받은금액", "잔금결제방법", "잔금직원", "총받은금액", "남은금액", "정산상태", "택배여부"]];
   state.visits.forEach((visit) => {
     const customer = getCustomer(visit.customerId) || {};
     rows.push([
@@ -815,8 +809,7 @@ function exportCsv() {
       visit.productName || "",
       visit.totalAmount || 0,
       visit.deposit,
-      visit.depositPaymentMethod || visit.paymentMethod || "",
-      visit.depositPaymentStaff || visit.paymentStaff || "",
+      visit.depositPaymentMethod || "계좌",
       visit.balance,
       visit.balancePaymentMethod || "",
       visit.balancePaymentStaff || "",

@@ -227,56 +227,53 @@
         </div>
         <input type="hidden" name="customerId" />
         <input type="hidden" name="visitId" />
-        <div class="form-grid">
-          <label><span>촬영일</span><input type="date" name="date" required /></label>
-          <label>
-            <span>촬영종류</span>
-            <select name="shootType" required>
-              <option>아기사진</option>
-              <option>가족사진</option>
-              <option>바디프로필</option>
-              <option>단체사진</option>
-              <option>증명/프로필</option>
-              <option>기타</option>
-            </select>
-          </label>
-          <label class="wide"><span>촬영상품/패키지</span><input name="productName" placeholder="예: 돌상 패키지, 가족사진 20R" /></label>
-          <label><span>총금액</span><input type="number" name="totalAmount" min="0" value="0" /></label>
-          <label><span>계약금 받은 금액</span><input type="number" name="deposit" min="0" value="0" /></label>
-          <label>
-            <span>계약금 결제방법</span>
-            <select name="depositPaymentMethod">
-              <option>계좌</option>
-              <option>카드</option>
-              <option>현금</option>
-              <option>혼합</option>
-              <option>미결제</option>
-            </select>
-          </label>
-          <label><span>계약금 받은 직원</span><input name="depositPaymentStaff" /></label>
-          <label><span>잔금 받은 금액</span><input type="number" name="balance" min="0" value="0" /></label>
-          <label>
-            <span>잔금 결제방법</span>
-            <select name="balancePaymentMethod">
-              <option>미결제</option>
-              <option>계좌</option>
-              <option>카드</option>
-              <option>현금</option>
-              <option>혼합</option>
-            </select>
-          </label>
-          <label><span>잔금 받은 직원</span><input name="balancePaymentStaff" /></label>
-          <label>
-            <span>택배여부</span>
-            <select name="deliveryStatus">
-              <option>없음</option>
-              <option>예정</option>
-              <option>발송완료</option>
-              <option>방문수령</option>
-            </select>
-          </label>
-          <label class="wide"><span>촬영/보정 메모</span><textarea name="memo" rows="3"></textarea></label>
-          <label class="wide"><span>보정 사진 업로드</span><input type="file" name="photos" accept="image/*" multiple /></label>
+        <div class="form-section">
+          <h3>촬영 내용</h3>
+          <div class="form-grid">
+            <label><span>촬영일</span><input type="date" name="date" required /></label>
+            <label>
+              <span>촬영종류</span>
+              <select name="shootType" required>
+                <option>아기사진</option>
+                <option>가족사진</option>
+                <option>바디프로필</option>
+                <option>단체사진</option>
+                <option>증명/프로필</option>
+                <option>기타</option>
+              </select>
+            </label>
+            <label class="wide"><span>촬영상품/패키지</span><input name="productName" placeholder="예: 돌상 패키지, 가족사진 20R" /></label>
+            <label>
+              <span>택배여부</span>
+              <select name="deliveryStatus">
+                <option>없음</option>
+                <option>예정</option>
+                <option>발송완료</option>
+                <option>방문수령</option>
+              </select>
+            </label>
+            <label class="wide"><span>촬영/보정 메모</span><textarea name="memo" rows="3"></textarea></label>
+            <label class="wide"><span>보정 사진 업로드</span><input type="file" name="photos" accept="image/*" multiple /></label>
+          </div>
+        </div>
+        <div class="form-section payment-form-section">
+          <h3>결제 내용</h3>
+          <div class="form-grid">
+            <label><span>총금액</span><input type="number" name="totalAmount" min="0" value="0" /></label>
+            <label><span>계약금 받은 금액</span><input type="number" name="deposit" min="0" value="0" /></label>
+            <label><span>잔금 받은 금액</span><input type="number" name="balance" min="0" value="0" /></label>
+            <label>
+              <span>잔금 결제방법</span>
+              <select name="balancePaymentMethod">
+                <option>미결제</option>
+                <option>계좌</option>
+                <option>카드</option>
+                <option>현금</option>
+                <option>혼합</option>
+              </select>
+            </label>
+            <label><span>잔금 받은 직원</span><input name="balancePaymentStaff" /></label>
+          </div>
         </div>
         <div class="button-row end">
           <button class="secondary-button" type="button" data-close-modal="visitModal">취소</button>

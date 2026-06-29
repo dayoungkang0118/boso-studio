@@ -153,7 +153,7 @@ function writeStudioData(data) {
   ]));
 
   writeSheet(ss, "Visits", [
-    ["방문ID", "고객번호", "방문회차", "촬영일", "촬영종류", "촬영상품", "총금액", "계약금받은금액", "계약금결제방법", "계약금직원", "잔금받은금액", "잔금결제방법", "잔금직원", "총받은금액", "남은금액", "정산상태", "택배여부", "메모", "사진수", "등록일"]
+    ["방문ID", "고객번호", "방문회차", "촬영일", "촬영종류", "촬영상품", "총금액", "계약금받은금액", "계약금결제방법", "잔금받은금액", "잔금결제방법", "잔금직원", "총받은금액", "남은금액", "정산상태", "택배여부", "메모", "사진수", "등록일"]
   ], (data.visits || []).map(v => [
     v.id || "",
     v.customerId || "",
@@ -163,8 +163,7 @@ function writeStudioData(data) {
     v.productName || "",
     v.totalAmount || 0,
     v.deposit || 0,
-    v.depositPaymentMethod || v.paymentMethod || "",
-    v.depositPaymentStaff || v.paymentStaff || "",
+    Number(v.deposit || 0) > 0 ? "계좌" : "미결제",
     v.balance || 0,
     v.balancePaymentMethod || "",
     v.balancePaymentStaff || "",
@@ -218,8 +217,7 @@ function readStudioData() {
       productName: row["촬영상품"] || "",
       totalAmount: Number(row["총금액"] || 0),
       deposit: Number(row["계약금"] || row["예약금"] || 0),
-      depositPaymentMethod: row["계약금결제방법"] || row["결제수단"] || "",
-      depositPaymentStaff: row["계약금직원"] || row["결제직원"] || "",
+      depositPaymentMethod: Number(row["계약금"] || row["예약금"] || 0) > 0 ? "계좌" : "미결제",
       balance: Number(row["잔금"] || 0),
       balancePaymentMethod: row["잔금결제방법"] || "",
       balancePaymentStaff: row["잔금직원"] || "",

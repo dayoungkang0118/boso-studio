@@ -523,6 +523,24 @@ dialog::backdrop {
   gap: 14px;
 }
 
+.form-section {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+  background: #fff;
+  margin-bottom: 14px;
+}
+
+.form-section h3 {
+  margin: 0 0 14px;
+  font-size: 15px;
+}
+
+.payment-form-section {
+  background: #f8fafb;
+  border-color: #cfd8e3;
+}
+
 .wide {
   grid-column: 1 / -1;
 }
