@@ -2,6 +2,7 @@ const STORAGE_KEY = "boso-studio-manager-v1";
 const DB_NAME = "boso-studio-manager-db";
 const DB_STORE = "app-state";
 const DB_VERSION = 1;
+const DEFAULT_CALENDAR_ID = "cf68d0dee8e4775e5f4ccd99b64727c9932f5512b08e8e7f8aa04ade1df853a0@group.calendar.google.com";
 
 const state = {
   customers: [],
@@ -9,7 +10,7 @@ const state = {
   reservations: [],
   settings: {
     sheetWebhookUrl: "",
-    calendarId: "",
+    calendarId: DEFAULT_CALENDAR_ID,
     calendarDuration: 60,
   },
   selectedCustomerId: null,
@@ -162,7 +163,7 @@ async function init() {
   await loadState();
   loadAppsScriptSample();
   $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || "";
-  $("#calendarId").value = state.settings.calendarId || "";
+  $("#calendarId").value = state.settings.calendarId || DEFAULT_CALENDAR_ID;
   $("#calendarDuration").value = state.settings.calendarDuration || 60;
   $("#reservationDateFilter").value = "";
 
@@ -637,7 +638,8 @@ function saveWebhook() {
 }
 
 function saveCalendarSettings(showMessage = true) {
-  state.settings.calendarId = $("#calendarId").value.trim();
+  state.settings.calendarId = normalizeCalendarId($("#calendarId").value.trim()) || DEFAULT_CALENDAR_ID;
+  $("#calendarId").value = state.settings.calendarId;
   state.settings.calendarDuration = Number($("#calendarDuration").value || 60);
   saveState();
   if (showMessage) showToast("캘린더 설정이 저장되었습니다.");
@@ -723,7 +725,7 @@ async function pushCalendar(options = {}) {
 
   const payload = {
     action: "syncCalendar",
-    calendarId: state.settings.calendarId,
+    calendarId: normalizeCalendarId(state.settings.calendarId) || DEFAULT_CALENDAR_ID,
     eventDurationMinutes: state.settings.calendarDuration || 60,
     reservations: state.reservations.map((reservation) => {
       const customer = getCustomer(reservation.customerId);
@@ -846,7 +848,7 @@ function importJson(event) {
       state.reservations = imported.reservations || [];
       state.settings = {
         sheetWebhookUrl: "",
-        calendarId: "",
+        calendarId: DEFAULT_CALENDAR_ID,
         calendarDuration: 60,
         ...(imported.settings || {}),
       };
@@ -854,7 +856,7 @@ function importJson(event) {
       migrateState();
       saveState();
       $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || "";
-      $("#calendarId").value = state.settings.calendarId || "";
+      $("#calendarId").value = state.settings.calendarId || DEFAULT_CALENDAR_ID;
       $("#calendarDuration").value = state.settings.calendarDuration || 60;
       renderAll();
       showToast("백업을 복원했습니다.");
@@ -919,6 +921,27 @@ function getRemainingAmount(visit) {
 
 function getSettlementStatus(visit) {
   return getRemainingAmount(visit) <= 0 ? "정산완료" : "잔금있음";
+}
+
+function normalizeCalendarId(value) {
+  if (!value) return "";
+  const trimmed = value.trim();
+
+  try {
+    const url = new URL(trimmed);
+    const cid = url.searchParams.get("cid");
+    if (cid) return decodeBase64Url(cid);
+  } catch {
+    // Plain calendar IDs are not URLs.
+  }
+
+  return trimmed;
+}
+
+function decodeBase64Url(value) {
+  const normalized = value.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  return decodeURIComponent(escape(atob(padded)));
 }
 
 function formatDate(value) {

@@ -1,3 +1,5 @@
+const DEFAULT_CALENDAR_ID = "cf68d0dee8e4775e5f4ccd99b64727c9932f5512b08e8e7f8aa04ade1df853a0@group.calendar.google.com";
+
 function doGet(e) {
   const data = readStudioData();
   const json = JSON.stringify(data);
@@ -78,13 +80,15 @@ function syncReservationsToCalendar(data) {
 }
 
 function getTargetCalendar(calendarId) {
-  if (!calendarId || calendarId === "primary") {
+  const targetId = calendarId || DEFAULT_CALENDAR_ID;
+
+  if (targetId === "primary") {
     return CalendarApp.getDefaultCalendar();
   }
 
-  const calendar = CalendarApp.getCalendarById(calendarId);
+  const calendar = CalendarApp.getCalendarById(targetId);
   if (!calendar) {
-    throw new Error("Calendar not found: " + calendarId);
+    throw new Error("Calendar not found: " + targetId);
   }
   return calendar;
 }
