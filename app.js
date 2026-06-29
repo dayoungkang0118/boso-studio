@@ -96,6 +96,7 @@ function seedSampleData() {
       visitNo: 1,
       date: today,
       shootType: "아기사진",
+      productName: "돌상 패키지",
       deposit: 50000,
       balance: 150000,
       paymentMethod: "계좌",
@@ -112,6 +113,7 @@ function seedSampleData() {
       date: today,
       time: "14:00",
       shootType: "가족사진",
+      productName: "가족사진 20R",
       staff: "대표",
       status: "예약",
       memo: "부모님 동반",
@@ -286,7 +288,8 @@ function renderCustomers() {
   const shootType = $("#shootTypeFilter").value;
 
   const customers = state.customers.filter((customer) => {
-    const haystack = normalize([customer.id, customer.name, customer.phone, customer.childName, customer.childInfo, customer.memo].join(" "));
+    const visitText = getVisits(customer.id).map((visit) => [visit.date, visit.shootType, visit.productName, visit.memo].join(" ")).join(" ");
+    const haystack = normalize([customer.id, customer.name, customer.phone, customer.childName, customer.childInfo, customer.memo, visitText].join(" "));
     const matchesQuery = !query || haystack.includes(query);
     const matchesShoot = !shootType || state.visits.some((visit) => visit.customerId === customer.id && visit.shootType === shootType);
     return matchesQuery && matchesShoot;
@@ -308,7 +311,8 @@ function renderCustomers() {
 }
 
 function renderCustomerListItem(customer) {
-  const visits = getVisits(customer.id);
+  const visits = getVisits(customer.id).sort((a, b) => b.date.localeCompare(a.date));
+  const latestVisit = visits[0];
   const selected = state.selectedCustomerId === customer.id ? " selected" : "";
   return `
     <article class="list-item clickable customer-card${selected}" data-customer-id="${customer.id}">
@@ -316,6 +320,7 @@ function renderCustomerListItem(customer) {
         <div>
           <div class="item-title">${escapeHtml(customer.name)} <span class="badge">${customer.id}</span></div>
           <div class="item-meta">${escapeHtml(customer.phone)} · 아이: ${escapeHtml(customer.childName || "-")}</div>
+          <div class="item-meta">최근 촬영: ${latestVisit ? `${formatDate(latestVisit.date)} · ${escapeHtml(latestVisit.shootType)}${latestVisit.productName ? ` · ${escapeHtml(latestVisit.productName)}` : ""}` : "기록 없음"}</div>
         </div>
         <span class="badge ${visits.length > 1 ? "done" : ""}">${visits.length}회</span>
       </div>
@@ -344,7 +349,7 @@ function renderCustomerDetail() {
     </div>
     <div class="detail-grid">
       <div class="info-box"><span>총 방문</span><strong>${visits.length}회</strong></div>
-      <div class="info-box"><span>최근 촬영</span><strong>${visits[0] ? escapeHtml(visits[0].shootType) : "-"}</strong></div>
+      <div class="info-box"><span>최근 촬영</span><strong>${visits[0] ? `${formatDate(visits[0].date)} · ${escapeHtml(visits[0].shootType)}` : "-"}</strong></div>
       <div class="info-box"><span>아이 정보</span><strong>${escapeHtml(customer.childInfo || "-")}</strong></div>
     </div>
     ${customer.memo ? `<div class="list-item"><strong>고객 메모</strong><div class="item-meta">${escapeHtml(customer.memo)}</div></div>` : ""}
@@ -370,7 +375,7 @@ function renderVisitDetail(visit) {
     <article class="list-item visit-card">
       <div class="item-top">
         <div>
-          <div class="item-title">${visit.visitNo}번째 방문 · ${escapeHtml(visit.shootType)}</div>
+          <div class="item-title">${visit.visitNo}번째 방문 · ${escapeHtml(visit.shootType)}${visit.productName ? ` · ${escapeHtml(visit.productName)}` : ""}</div>
           <div class="item-meta">${formatDate(visit.date)} · 예약금 ${formatWon(visit.deposit)} · 잔금 ${formatWon(visit.balance)} · ${escapeHtml(visit.paymentMethod)} · 담당 ${escapeHtml(visit.paymentStaff || "-")}</div>
         </div>
         <span class="badge ${Number(visit.balance) > 0 ? "warning" : "done"}">${Number(visit.balance) > 0 ? "잔금있음" : "정산완료"}</span>
@@ -387,7 +392,7 @@ function renderVisitSummary(visit) {
       <div class="item-top">
         <div>
           <div class="item-title">${escapeHtml(customer?.name || "삭제된 고객")} · ${visit.visitNo}번째 방문</div>
-          <div class="item-meta">${formatDate(visit.date)} · ${escapeHtml(visit.shootType)} · 사진 ${visit.photos?.length || 0}장</div>
+          <div class="item-meta">${formatDate(visit.date)} · ${escapeHtml(visit.shootType)}${visit.productName ? ` · ${escapeHtml(visit.productName)}` : ""} · 사진 ${visit.photos?.length || 0}장</div>
         </div>
         <span class="badge">${escapeHtml(visit.customerId)}</span>
       </div>
@@ -400,7 +405,7 @@ function renderReservations() {
   const reservations = state.reservations
     .filter((reservation) => {
       const customer = getCustomer(reservation.customerId);
-      const haystack = normalize([customer?.name, customer?.phone, reservation.shootType, reservation.staff, reservation.memo].join(" "));
+      const haystack = normalize([customer?.name, customer?.phone, reservation.shootType, reservation.productName, reservation.staff, reservation.memo].join(" "));
       return (!query || haystack.includes(query)) && (!date || reservation.date === date);
     })
     .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
@@ -418,7 +423,7 @@ function renderReservationItem(reservation) {
       <div class="item-top">
         <div>
           <div class="item-title">${formatDate(reservation.date)} ${reservation.time} · ${escapeHtml(customer?.name || "삭제된 고객")}</div>
-          <div class="item-meta">${escapeHtml(customer?.phone || "-")} · ${escapeHtml(reservation.shootType)} · 담당 ${escapeHtml(reservation.staff || "-")}</div>
+          <div class="item-meta">${escapeHtml(customer?.phone || "-")} · ${escapeHtml(reservation.shootType)}${reservation.productName ? ` · ${escapeHtml(reservation.productName)}` : ""} · 담당 ${escapeHtml(reservation.staff || "-")}</div>
           ${reservation.memo ? `<div class="item-meta">${escapeHtml(reservation.memo)}</div>` : ""}
         </div>
         <span class="badge ${statusClass}">${escapeHtml(reservation.status)}</span>
@@ -440,6 +445,23 @@ function handleCustomerSubmit(event) {
   };
 
   state.customers.unshift(customer);
+  if (form.get("firstVisitDate") && form.get("firstShootType")) {
+    state.visits.unshift({
+      id: newId(),
+      customerId: customer.id,
+      visitNo: 1,
+      date: form.get("firstVisitDate"),
+      shootType: form.get("firstShootType"),
+      productName: form.get("firstProductName").trim(),
+      deposit: 0,
+      balance: 0,
+      paymentMethod: "미결제",
+      paymentStaff: "",
+      memo: "고객 등록 시 입력한 첫 촬영 기록",
+      photos: [],
+      createdAt: new Date().toISOString(),
+    });
+  }
   state.selectedCustomerId = customer.id;
   saveState();
   $("#customerModal").close();
@@ -459,6 +481,7 @@ async function handleVisitSubmit(event) {
     visitNo: getVisits(customerId).length + 1,
     date: form.get("date"),
     shootType: form.get("shootType"),
+    productName: form.get("productName").trim(),
     deposit: Number(form.get("deposit") || 0),
     balance: Number(form.get("balance") || 0),
     paymentMethod: form.get("paymentMethod"),
@@ -484,6 +507,7 @@ function handleReservationSubmit(event) {
     date: form.get("date"),
     time: form.get("time"),
     shootType: form.get("shootType"),
+    productName: form.get("productName").trim(),
     staff: form.get("staff").trim(),
     status: form.get("status"),
     memo: form.get("memo").trim(),
@@ -666,7 +690,7 @@ function exportJson() {
 }
 
 function exportCsv() {
-  const rows = [["고객번호", "고객명", "전화번호", "아이이름", "방문회차", "촬영일", "촬영종류", "예약금", "잔금", "결제수단", "결제직원"]];
+  const rows = [["고객번호", "고객명", "전화번호", "아이이름", "방문회차", "촬영일", "촬영종류", "촬영상품", "예약금", "잔금", "결제수단", "결제직원"]];
   state.visits.forEach((visit) => {
     const customer = getCustomer(visit.customerId) || {};
     rows.push([
@@ -677,6 +701,7 @@ function exportCsv() {
       visit.visitNo,
       visit.date,
       visit.shootType,
+      visit.productName || "",
       visit.deposit,
       visit.balance,
       visit.paymentMethod,

@@ -108,7 +108,7 @@ function getExistingReservationEvents(calendar) {
 
 function buildCalendarTitle(reservation) {
   const name = reservation.customerName || "고객";
-  const type = reservation.shootType || "촬영";
+  const type = [reservation.shootType, reservation.productName].filter(Boolean).join(" · ") || "촬영";
   return "[보소사진관] " + name + " - " + type;
 }
 
@@ -118,6 +118,7 @@ function buildCalendarDescription(reservation) {
     "전화번호: " + (reservation.customerPhone || ""),
     "아이 이름: " + (reservation.childName || ""),
     "촬영종류: " + (reservation.shootType || ""),
+    "촬영상품: " + (reservation.productName || ""),
     "담당 직원: " + (reservation.staff || ""),
     "상태: " + (reservation.status || ""),
     "예약ID: " + (reservation.id || ""),
@@ -151,13 +152,14 @@ function writeStudioData(data) {
   ]));
 
   writeSheet(ss, "Visits", [
-    ["방문ID", "고객번호", "방문회차", "촬영일", "촬영종류", "예약금", "잔금", "결제수단", "결제직원", "메모", "사진수", "등록일"]
+    ["방문ID", "고객번호", "방문회차", "촬영일", "촬영종류", "촬영상품", "예약금", "잔금", "결제수단", "결제직원", "메모", "사진수", "등록일"]
   ], (data.visits || []).map(v => [
     v.id || "",
     v.customerId || "",
     v.visitNo || "",
     v.date || "",
     v.shootType || "",
+    v.productName || "",
     v.deposit || 0,
     v.balance || 0,
     v.paymentMethod || "",
@@ -168,7 +170,7 @@ function writeStudioData(data) {
   ]));
 
   writeSheet(ss, "Reservations", [
-    ["예약ID", "고객번호", "고객명", "예약일", "시간", "촬영종류", "담당직원", "상태", "메모", "등록일"]
+    ["예약ID", "고객번호", "고객명", "예약일", "시간", "촬영종류", "촬영상품", "담당직원", "상태", "메모", "등록일"]
   ], (data.reservations || []).map(r => [
     r.id || "",
     r.customerId || "",
@@ -176,6 +178,7 @@ function writeStudioData(data) {
     r.date || "",
     r.time || "",
     r.shootType || "",
+    r.productName || "",
     r.staff || "",
     r.status || "",
     r.memo || "",
@@ -203,6 +206,7 @@ function readStudioData() {
       visitNo: Number(row["방문회차"] || 0),
       date: normalizeDate(row["촬영일"]),
       shootType: row["촬영종류"] || "",
+      productName: row["촬영상품"] || "",
       deposit: Number(row["예약금"] || 0),
       balance: Number(row["잔금"] || 0),
       paymentMethod: row["결제수단"] || "",
@@ -218,6 +222,7 @@ function readStudioData() {
       date: normalizeDate(row["예약일"]),
       time: normalizeTime(row["시간"]),
       shootType: row["촬영종류"] || "",
+      productName: row["촬영상품"] || "",
       staff: row["담당직원"] || "",
       status: row["상태"] || "예약",
       memo: row["메모"] || "",

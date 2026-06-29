@@ -195,6 +195,20 @@
           <label><span>전화번호</span><input name="phone" required /></label>
           <label><span>아이 이름</span><input name="childName" /></label>
           <label><span>생년월일/메모</span><input name="childInfo" placeholder="예: 2024.03.15, 첫돌" /></label>
+          <label><span>첫 촬영일</span><input type="date" name="firstVisitDate" /></label>
+          <label>
+            <span>첫 촬영종류</span>
+            <select name="firstShootType">
+              <option value="">선택 안 함</option>
+              <option>아기사진</option>
+              <option>가족사진</option>
+              <option>바디프로필</option>
+              <option>단체사진</option>
+              <option>증명/프로필</option>
+              <option>기타</option>
+            </select>
+          </label>
+          <label class="wide"><span>촬영상품/패키지</span><input name="firstProductName" placeholder="예: 돌상 패키지, 가족사진 20R, 바디프로필 A컷" /></label>
           <label class="wide"><span>고객 메모</span><textarea name="memo" rows="3"></textarea></label>
         </div>
         <div class="button-row end">
@@ -224,6 +238,7 @@
               <option>기타</option>
             </select>
           </label>
+          <label class="wide"><span>촬영상품/패키지</span><input name="productName" placeholder="예: 돌상 패키지, 가족사진 20R" /></label>
           <label><span>예약금</span><input type="number" name="deposit" min="0" value="0" /></label>
           <label><span>잔금</span><input type="number" name="balance" min="0" value="0" /></label>
           <label>
@@ -268,6 +283,7 @@
               <option>기타</option>
             </select>
           </label>
+          <label class="wide"><span>촬영상품/패키지</span><input name="productName" placeholder="예: 돌상 패키지, 가족사진 20R" /></label>
           <label><span>담당 직원</span><input name="staff" /></label>
           <label>
             <span>상태</span>
