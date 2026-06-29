@@ -152,7 +152,7 @@ function writeStudioData(data) {
   ]));
 
   writeSheet(ss, "Visits", [
-    ["방문ID", "고객번호", "방문회차", "촬영일", "촬영종류", "촬영상품", "예약금", "잔금", "결제수단", "결제직원", "메모", "사진수", "등록일"]
+    ["방문ID", "고객번호", "방문회차", "촬영일", "촬영종류", "촬영상품", "계약금", "계약금결제방법", "계약금직원", "잔금", "잔금결제방법", "잔금직원", "메모", "사진수", "등록일"]
   ], (data.visits || []).map(v => [
     v.id || "",
     v.customerId || "",
@@ -161,9 +161,11 @@ function writeStudioData(data) {
     v.shootType || "",
     v.productName || "",
     v.deposit || 0,
+    v.depositPaymentMethod || v.paymentMethod || "",
+    v.depositPaymentStaff || v.paymentStaff || "",
     v.balance || 0,
-    v.paymentMethod || "",
-    v.paymentStaff || "",
+    v.balancePaymentMethod || "",
+    v.balancePaymentStaff || "",
     v.memo || "",
     (v.photos || []).length,
     v.createdAt || ""
@@ -207,10 +209,12 @@ function readStudioData() {
       date: normalizeDate(row["촬영일"]),
       shootType: row["촬영종류"] || "",
       productName: row["촬영상품"] || "",
-      deposit: Number(row["예약금"] || 0),
+      deposit: Number(row["계약금"] || row["예약금"] || 0),
+      depositPaymentMethod: row["계약금결제방법"] || row["결제수단"] || "",
+      depositPaymentStaff: row["계약금직원"] || row["결제직원"] || "",
       balance: Number(row["잔금"] || 0),
-      paymentMethod: row["결제수단"] || "",
-      paymentStaff: row["결제직원"] || "",
+      balancePaymentMethod: row["잔금결제방법"] || "",
+      balancePaymentStaff: row["잔금직원"] || "",
       memo: row["메모"] || "",
       photos: [],
       createdAt: row["등록일"] || new Date().toISOString()

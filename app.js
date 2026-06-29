@@ -63,10 +63,13 @@ async function loadState() {
   const saved = await readPersistedState();
   if (saved) {
     Object.assign(state, saved);
+    migrateState();
+    saveState();
     return;
   }
 
   seedSampleData();
+  migrateState();
   saveState();
 }
 
@@ -76,11 +79,35 @@ function saveState() {
   });
 }
 
+function migrateState() {
+  const idMap = new Map();
+
+  state.customers.forEach((customer) => {
+    if (String(customer.id || "").startsWith("BOSO-")) {
+      const nextId = customer.id.replace(/^BOSO-/, "");
+      idMap.set(customer.id, nextId);
+      customer.id = nextId;
+    }
+  });
+
+  state.visits.forEach((visit) => {
+    if (idMap.has(visit.customerId)) visit.customerId = idMap.get(visit.customerId);
+    visit.depositPaymentMethod = visit.depositPaymentMethod || visit.paymentMethod || "미결제";
+    visit.depositPaymentStaff = visit.depositPaymentStaff || visit.paymentStaff || "";
+    visit.balancePaymentMethod = visit.balancePaymentMethod || "미결제";
+    visit.balancePaymentStaff = visit.balancePaymentStaff || "";
+  });
+
+  state.reservations.forEach((reservation) => {
+    if (idMap.has(reservation.customerId)) reservation.customerId = idMap.get(reservation.customerId);
+  });
+}
+
 function seedSampleData() {
   const today = toDateInput(new Date());
   state.customers = [
     {
-      id: "BOSO-2026-0001",
+      id: "2026-0001",
       name: "김하늘",
       phone: "010-1234-5678",
       childName: "서아",
@@ -92,15 +119,17 @@ function seedSampleData() {
   state.visits = [
     {
       id: newId(),
-      customerId: "BOSO-2026-0001",
+      customerId: "2026-0001",
       visitNo: 1,
       date: today,
       shootType: "아기사진",
       productName: "돌상 패키지",
       deposit: 50000,
       balance: 150000,
-      paymentMethod: "계좌",
-      paymentStaff: "대표",
+      depositPaymentMethod: "계좌",
+      depositPaymentStaff: "대표",
+      balancePaymentMethod: "미결제",
+      balancePaymentStaff: "",
       memo: "첫 방문. 밝은 배경 선호.",
       photos: [],
       createdAt: new Date().toISOString(),
@@ -109,7 +138,7 @@ function seedSampleData() {
   state.reservations = [
     {
       id: newId(),
-      customerId: "BOSO-2026-0001",
+      customerId: "2026-0001",
       date: today,
       time: "14:00",
       shootType: "가족사진",
@@ -371,9 +400,14 @@ function renderCustomerDetail() {
 
   $("#addVisit").addEventListener("click", () => {
     $("#visitForm").reset();
+    $("#visitForm").visitId.value = "";
     $("#visitForm").customerId.value = customer.id;
     $("#visitForm").date.value = toDateInput(new Date());
     $("#visitModal").showModal();
+  });
+
+  $$(".edit-visit").forEach((button) => {
+    button.addEventListener("click", () => openVisitEditor(button.dataset.visitId));
   });
 }
 
@@ -386,13 +420,41 @@ function renderVisitDetail(visit) {
       <div class="item-top">
         <div>
           <div class="item-title">${visit.visitNo}번째 방문 · ${escapeHtml(visit.shootType)}${visit.productName ? ` · ${escapeHtml(visit.productName)}` : ""}</div>
-          <div class="item-meta">${formatDate(visit.date)} · 예약금 ${formatWon(visit.deposit)} · 잔금 ${formatWon(visit.balance)} · ${escapeHtml(visit.paymentMethod)} · 담당 ${escapeHtml(visit.paymentStaff || "-")}</div>
+          <div class="item-meta">${formatDate(visit.date)} · 계약금 ${formatWon(visit.deposit)} · 잔금 ${formatWon(visit.balance)}</div>
         </div>
         <span class="badge ${Number(visit.balance) > 0 ? "warning" : "done"}">${Number(visit.balance) > 0 ? "잔금있음" : "정산완료"}</span>
       </div>
+      <div class="payment-breakdown">
+        <div><strong>계약금</strong> ${formatWon(visit.deposit)} · ${escapeHtml(visit.depositPaymentMethod || visit.paymentMethod || "-")} · ${escapeHtml(visit.depositPaymentStaff || visit.paymentStaff || "-")}</div>
+        <div><strong>잔금</strong> ${formatWon(visit.balance)} · ${escapeHtml(visit.balancePaymentMethod || "-")} · ${escapeHtml(visit.balancePaymentStaff || "-")}</div>
+      </div>
       ${visit.memo ? `<div class="item-meta">${escapeHtml(visit.memo)}</div>` : ""}
       ${photoMarkup}
+      <div class="button-row">
+        <button class="secondary-button edit-visit" data-visit-id="${escapeHtml(visit.id)}">수정</button>
+      </div>
     </article>`;
+}
+
+function openVisitEditor(visitId) {
+  const visit = state.visits.find((item) => item.id === visitId);
+  if (!visit) return;
+
+  const form = $("#visitForm");
+  form.reset();
+  form.visitId.value = visit.id;
+  form.customerId.value = visit.customerId;
+  form.date.value = visit.date || "";
+  form.shootType.value = visit.shootType || "아기사진";
+  form.productName.value = visit.productName || "";
+  form.deposit.value = visit.deposit || 0;
+  form.depositPaymentMethod.value = visit.depositPaymentMethod || visit.paymentMethod || "미결제";
+  form.depositPaymentStaff.value = visit.depositPaymentStaff || visit.paymentStaff || "";
+  form.balance.value = visit.balance || 0;
+  form.balancePaymentMethod.value = visit.balancePaymentMethod || "미결제";
+  form.balancePaymentStaff.value = visit.balancePaymentStaff || "";
+  form.memo.value = visit.memo || "";
+  $("#visitModal").showModal();
 }
 
 function renderVisitSummary(visit) {
@@ -465,8 +527,10 @@ function handleCustomerSubmit(event) {
       productName: form.get("firstProductName").trim(),
       deposit: 0,
       balance: 0,
-      paymentMethod: "미결제",
-      paymentStaff: "",
+      depositPaymentMethod: "미결제",
+      depositPaymentStaff: "",
+      balancePaymentMethod: "미결제",
+      balancePaymentStaff: "",
       memo: "고객 등록 시 입력한 첫 촬영 기록",
       photos: [],
       createdAt: new Date().toISOString(),
@@ -484,28 +548,36 @@ async function handleVisitSubmit(event) {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
   const customerId = form.get("customerId");
+  const visitId = form.get("visitId");
   const photos = await filesToDataUrls(event.currentTarget.photos.files);
+  const existingVisit = state.visits.find((item) => item.id === visitId);
   const visit = {
-    id: newId(),
+    id: visitId || newId(),
     customerId,
-    visitNo: getVisits(customerId).length + 1,
+    visitNo: existingVisit?.visitNo || getVisits(customerId).length + 1,
     date: form.get("date"),
     shootType: form.get("shootType"),
     productName: form.get("productName").trim(),
     deposit: Number(form.get("deposit") || 0),
     balance: Number(form.get("balance") || 0),
-    paymentMethod: form.get("paymentMethod"),
-    paymentStaff: form.get("paymentStaff").trim(),
+    depositPaymentMethod: form.get("depositPaymentMethod"),
+    depositPaymentStaff: form.get("depositPaymentStaff").trim(),
+    balancePaymentMethod: form.get("balancePaymentMethod"),
+    balancePaymentStaff: form.get("balancePaymentStaff").trim(),
     memo: form.get("memo").trim(),
-    photos,
-    createdAt: new Date().toISOString(),
+    photos: photos.length ? [...(existingVisit?.photos || []), ...photos] : existingVisit?.photos || [],
+    createdAt: existingVisit?.createdAt || new Date().toISOString(),
   };
 
-  state.visits.unshift(visit);
+  if (existingVisit) {
+    Object.assign(existingVisit, visit);
+  } else {
+    state.visits.unshift(visit);
+  }
   saveState();
   $("#visitModal").close();
   renderAll();
-  showToast("방문 기록이 저장되었습니다.");
+  showToast(existingVisit ? "촬영 기록이 수정되었습니다." : "방문 기록이 저장되었습니다.");
 }
 
 function handleReservationSubmit(event) {
@@ -600,6 +672,10 @@ async function pullSheets() {
       id: visit.id || newId(),
       deposit: Number(visit.deposit || 0),
       balance: Number(visit.balance || 0),
+      depositPaymentMethod: visit.depositPaymentMethod || visit.paymentMethod || "미결제",
+      depositPaymentStaff: visit.depositPaymentStaff || visit.paymentStaff || "",
+      balancePaymentMethod: visit.balancePaymentMethod || "미결제",
+      balancePaymentStaff: visit.balancePaymentStaff || "",
     }));
     state.reservations = (data.reservations || []).map((reservation) => ({
       createdAt: new Date().toISOString(),
@@ -700,7 +776,7 @@ function exportJson() {
 }
 
 function exportCsv() {
-  const rows = [["고객번호", "고객명", "전화번호", "아이이름", "방문회차", "촬영일", "촬영종류", "촬영상품", "예약금", "잔금", "결제수단", "결제직원"]];
+  const rows = [["고객번호", "고객명", "전화번호", "아이이름", "방문회차", "촬영일", "촬영종류", "촬영상품", "계약금", "계약금결제방법", "계약금직원", "잔금", "잔금결제방법", "잔금직원"]];
   state.visits.forEach((visit) => {
     const customer = getCustomer(visit.customerId) || {};
     rows.push([
@@ -713,9 +789,11 @@ function exportCsv() {
       visit.shootType,
       visit.productName || "",
       visit.deposit,
+      visit.depositPaymentMethod || visit.paymentMethod || "",
+      visit.depositPaymentStaff || visit.paymentStaff || "",
       visit.balance,
-      visit.paymentMethod,
-      visit.paymentStaff,
+      visit.balancePaymentMethod || "",
+      visit.balancePaymentStaff || "",
     ]);
   });
   const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
@@ -740,6 +818,7 @@ function importJson(event) {
         ...(imported.settings || {}),
       };
       state.selectedCustomerId = null;
+      migrateState();
       saveState();
       $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || "";
       $("#calendarId").value = state.settings.calendarId || "";
@@ -756,7 +835,7 @@ function importJson(event) {
 
 function nextCustomerId() {
   const year = new Date().getFullYear();
-  const prefix = `BOSO-${year}-`;
+  const prefix = `${year}-`;
   const last = state.customers
     .map((customer) => customer.id)
     .filter((id) => id.startsWith(prefix))
