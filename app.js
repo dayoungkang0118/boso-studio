@@ -187,6 +187,7 @@ function bindEvents() {
 
   $("#openReservationModal").addEventListener("click", () => {
     $("#reservationForm").reset();
+    delete $("#reservationForm").dataset.reservationId;
     fillCustomerSelect();
     $("#reservationForm").date.value = toDateInput(new Date());
     $("#reservationModal").showModal();
@@ -517,7 +518,7 @@ function renderReservationItem(reservation) {
         <span class="badge ${statusClass}">${escapeHtml(reservation.status)}</span>
       </div>
       <div class="button-row reservation-actions">
-        ${reservation.status !== "취소" ? `<button class="secondary-button cancel-reservation" type="button" data-reservation-id="${escapeHtml(reservation.id)}">예약 취소</button>` : ""}
+        <button class="secondary-button edit-reservation" type="button" data-reservation-id="${escapeHtml(reservation.id)}">예약 수정</button>
         <button class="secondary-button danger-button delete-reservation" type="button" data-reservation-id="${escapeHtml(reservation.id)}">삭제</button>
       </div>
     </article>`;
@@ -605,9 +606,12 @@ async function handleVisitSubmit(event) {
 
 async function handleReservationSubmit(event) {
   event.preventDefault();
+  const formElement = event.currentTarget;
   const form = new FormData(event.currentTarget);
+  const reservationId = formElement.dataset.reservationId;
+  const existingReservation = state.reservations.find((item) => item.id === reservationId);
   const reservation = {
-    id: newId(),
+    id: existingReservation?.id || newId(),
     customerId: form.get("customerId"),
     date: form.get("date"),
     time: form.get("time"),
@@ -616,22 +620,28 @@ async function handleReservationSubmit(event) {
     staff: form.get("staff").trim(),
     status: form.get("status"),
     memo: form.get("memo").trim(),
-    createdAt: new Date().toISOString(),
+    createdAt: existingReservation?.createdAt || new Date().toISOString(),
   };
 
-  state.reservations.push(reservation);
+  if (existingReservation) {
+    Object.assign(existingReservation, reservation);
+  } else {
+    state.reservations.push(reservation);
+  }
   saveState();
   $("#reservationModal").close();
+  delete formElement.dataset.reservationId;
   renderAll();
   switchView("reservations");
   const calendarSynced = await syncCalendarAfterReservation(reservation);
-  showToast(calendarSynced ? "예약이 등록되고 Google Calendar에 전송되었습니다." : "예약은 등록됐지만 Google Calendar 전송은 실패했습니다.");
+  const actionText = existingReservation ? "수정" : "등록";
+  showToast(calendarSynced ? `예약이 ${actionText}되고 Google Calendar에 반영되었습니다.` : `예약은 ${actionText}됐지만 Google Calendar 반영은 실패했습니다.`);
 }
 
 function handleReservationActionClick(event) {
-  const cancelButton = event.target.closest(".cancel-reservation");
-  if (cancelButton) {
-    cancelReservation(cancelButton.dataset.reservationId);
+  const editButton = event.target.closest(".edit-reservation");
+  if (editButton) {
+    openReservationEditor(editButton.dataset.reservationId);
     return;
   }
 
@@ -641,15 +651,23 @@ function handleReservationActionClick(event) {
   }
 }
 
-async function cancelReservation(reservationId) {
+function openReservationEditor(reservationId) {
   const reservation = state.reservations.find((item) => item.id === reservationId);
   if (!reservation) return;
 
-  reservation.status = "취소";
-  saveState();
-  renderAll();
-  const calendarSynced = await syncCalendarAfterReservation(reservation);
-  showToast(calendarSynced ? "예약을 취소하고 Google Calendar에 반영했습니다." : "예약은 취소됐지만 Google Calendar 반영은 실패했습니다.");
+  const form = $("#reservationForm");
+  form.reset();
+  fillCustomerSelect();
+  form.dataset.reservationId = reservation.id;
+  form.customerId.value = reservation.customerId;
+  form.date.value = reservation.date;
+  form.time.value = reservation.time;
+  form.shootType.value = reservation.shootType;
+  form.productName.value = reservation.productName || "";
+  form.staff.value = reservation.staff || "";
+  form.status.value = reservation.status;
+  form.memo.value = reservation.memo || "";
+  $("#reservationModal").showModal();
 }
 
 async function deleteReservation(reservationId) {
