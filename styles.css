@@ -304,6 +304,15 @@ textarea {
   color: var(--ink);
 }
 
+.danger-button {
+  border-color: #efb6ad;
+  color: #b3261e;
+}
+
+.danger-button:hover {
+  background: #fff5f4;
+}
+
 .ghost-button {
   background: transparent;
   color: var(--accent);
@@ -341,6 +350,11 @@ textarea {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+}
+
+.reservation-actions {
+  justify-content: flex-end;
+  margin-top: 12px;
 }
 
 .item-title {

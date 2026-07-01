@@ -204,6 +204,7 @@ function bindEvents() {
   $("#customerForm").addEventListener("submit", handleCustomerSubmit);
   $("#visitForm").addEventListener("submit", handleVisitSubmit);
   $("#reservationForm").addEventListener("submit", handleReservationSubmit);
+  document.addEventListener("click", handleReservationActionClick);
 
   $("#saveWebhook").addEventListener("click", saveWebhook);
   $("#saveCalendarSettings").addEventListener("click", saveCalendarSettings);
@@ -515,6 +516,10 @@ function renderReservationItem(reservation) {
         </div>
         <span class="badge ${statusClass}">${escapeHtml(reservation.status)}</span>
       </div>
+      <div class="button-row reservation-actions">
+        ${reservation.status !== "취소" ? `<button class="secondary-button cancel-reservation" type="button" data-reservation-id="${escapeHtml(reservation.id)}">예약 취소</button>` : ""}
+        <button class="secondary-button danger-button delete-reservation" type="button" data-reservation-id="${escapeHtml(reservation.id)}">삭제</button>
+      </div>
     </article>`;
 }
 
@@ -621,6 +626,43 @@ async function handleReservationSubmit(event) {
   switchView("reservations");
   const calendarSynced = await syncCalendarAfterReservation(reservation);
   showToast(calendarSynced ? "예약이 등록되고 Google Calendar에 전송되었습니다." : "예약은 등록됐지만 Google Calendar 전송은 실패했습니다.");
+}
+
+function handleReservationActionClick(event) {
+  const cancelButton = event.target.closest(".cancel-reservation");
+  if (cancelButton) {
+    cancelReservation(cancelButton.dataset.reservationId);
+    return;
+  }
+
+  const deleteButton = event.target.closest(".delete-reservation");
+  if (deleteButton) {
+    deleteReservation(deleteButton.dataset.reservationId);
+  }
+}
+
+async function cancelReservation(reservationId) {
+  const reservation = state.reservations.find((item) => item.id === reservationId);
+  if (!reservation) return;
+
+  reservation.status = "취소";
+  saveState();
+  renderAll();
+  const calendarSynced = await syncCalendarAfterReservation(reservation);
+  showToast(calendarSynced ? "예약을 취소하고 Google Calendar에 반영했습니다." : "예약은 취소됐지만 Google Calendar 반영은 실패했습니다.");
+}
+
+async function deleteReservation(reservationId) {
+  const reservation = state.reservations.find((item) => item.id === reservationId);
+  if (!reservation) return;
+  if (!confirm("예약을 삭제할까요? 삭제하면 예약관리 목록에서 사라집니다.")) return;
+
+  const calendarReservation = { ...reservation, status: "취소" };
+  const calendarSynced = await syncCalendarAfterReservation(calendarReservation);
+  state.reservations = state.reservations.filter((item) => item.id !== reservationId);
+  saveState();
+  renderAll();
+  showToast(calendarSynced ? "예약을 삭제하고 Google Calendar에서도 정리했습니다." : "예약은 삭제됐지만 Google Calendar 정리는 실패했습니다.");
 }
 
 function fillCustomerSelect() {
