@@ -134,6 +134,7 @@ function calendarEventToReservation(event) {
   const fields = parseDescriptionFields(description);
   const titleInfo = parseCalendarTitle(event.getTitle());
   const reservationId = fields["예약ID"] || event.getTag("bosoReservationId") || makeCalendarReservationId(event);
+  const contact = parseContactInfo(event.getTitle(), description);
 
   if (!event.getTag("bosoReservationId")) {
     event.setTag("bosoReservationId", reservationId);
@@ -142,8 +143,8 @@ function calendarEventToReservation(event) {
   return {
     id: reservationId,
     customerId: fields["고객번호"] || "",
-    customerName: fields["고객명"] || titleInfo.customerName || "",
-    customerPhone: fields["전화번호"] || "",
+    customerName: fields["고객명"] || contact.name || titleInfo.customerName || "",
+    customerPhone: fields["전화번호"] || contact.phone || "",
     childName: fields["아이 이름"] || fields["아이이름"] || "",
     date: Utilities.formatDate(event.getStartTime(), Session.getScriptTimeZone(), "yyyy-MM-dd"),
     time: event.isAllDayEvent() ? "00:00" : Utilities.formatDate(event.getStartTime(), Session.getScriptTimeZone(), "HH:mm"),
@@ -156,6 +157,24 @@ function calendarEventToReservation(event) {
     calendarUpdatedAt: event.getLastUpdated().toISOString(),
     createdAt: event.getDateCreated().toISOString()
   };
+}
+
+function parseContactInfo(title, description) {
+  const text = [title || "", description || ""].join("\n");
+  const phoneMatch = text.match(/01[016789][\\s.-]*\\d{3,4}[\\s.-]*\\d{4}/);
+  const phone = phoneMatch ? phoneMatch[0].replace(/[^0-9]/g, "").replace(/^(\\d{3})(\\d{3,4})(\\d{4})$/, "$1-$2-$3") : "";
+  let name = "";
+  const labeledName = text.match(/예약자\\s*성함\\s*,?\\s*연락처\\s*[:：]\\s*([^\\n\\d,()]+)/);
+  if (labeledName) name = labeledName[1].trim();
+  if (!name) {
+    const parenName = String(title || "").match(/[\\(（]([^\\)_）]+)[_\\)）]/);
+    if (parenName) name = parenName[1].trim();
+  }
+  if (!name) {
+    const underscoreName = String(title || "").split("_").pop();
+    if (underscoreName && underscoreName !== title) name = underscoreName.trim();
+  }
+  return { name: name, phone: phone };
 }
 
 function makeCalendarReservationId(event) {

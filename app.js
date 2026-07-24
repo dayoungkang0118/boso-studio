@@ -3,6 +3,7 @@ const DB_NAME = "boso-studio-manager-db";
 const DB_STORE = "app-state";
 const DB_VERSION = 1;
 const DEFAULT_CALENDAR_ID = "cf68d0dee8e4775e5f4ccd99b64727c9932f5512b08e8e7f8aa04ade1df853a0@group.calendar.google.com";
+const DEFAULT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzMdYQeGIAB-MnvxRMI_orjFUczKTI3BCQLZ0lkSuGANkTDuQflYStN86weDpfksHlt/exec";
 const CALENDAR_PULL_INTERVAL_MS = 60 * 1000;
 let calendarPullTimer = null;
 
@@ -11,7 +12,7 @@ const state = {
   visits: [],
   reservations: [],
   settings: {
-    sheetWebhookUrl: "",
+    sheetWebhookUrl: DEFAULT_WEBHOOK_URL,
     calendarId: DEFAULT_CALENDAR_ID,
     calendarDuration: 60,
   },
@@ -85,11 +86,12 @@ function saveState() {
 function migrateState() {
   const idMap = new Map();
   state.settings = {
-    sheetWebhookUrl: "",
+    sheetWebhookUrl: DEFAULT_WEBHOOK_URL,
     calendarId: DEFAULT_CALENDAR_ID,
     calendarDuration: 60,
     ...(state.settings || {}),
   };
+  if (!state.settings.sheetWebhookUrl) state.settings.sheetWebhookUrl = DEFAULT_WEBHOOK_URL;
   state.settings.calendarId = DEFAULT_CALENDAR_ID;
 
   state.customers.forEach((customer) => {
@@ -171,7 +173,7 @@ function seedSampleData() {
 async function init() {
   await loadState();
   loadAppsScriptSample();
-  $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || "";
+  $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || DEFAULT_WEBHOOK_URL;
   $("#calendarId").value = DEFAULT_CALENDAR_ID;
   $("#calendarDuration").value = state.settings.calendarDuration || 60;
   $("#reservationDateFilter").value = "";
@@ -718,7 +720,7 @@ function saveCalendarSettings(showMessage = true) {
 }
 
 async function pushSheets() {
-  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim();
+  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim() || DEFAULT_WEBHOOK_URL;
   if (!url) {
     showToast("Apps Script 웹앱 URL을 먼저 입력하세요.");
     return;
@@ -748,7 +750,7 @@ async function pushSheets() {
 }
 
 async function pullSheets() {
-  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim();
+  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim() || DEFAULT_WEBHOOK_URL;
   if (!url) {
     showToast("Apps Script 웹앱 URL을 먼저 입력하세요.");
     return;
@@ -787,7 +789,7 @@ async function pullSheets() {
 
 async function pushCalendar(options = {}) {
   const silent = Boolean(options.silent);
-  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim();
+  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim() || DEFAULT_WEBHOOK_URL;
   if (!url) {
     if (!silent) showToast("Apps Script 웹앱 URL을 먼저 입력하세요.");
     return;
@@ -829,7 +831,7 @@ async function pushCalendar(options = {}) {
 async function pullCalendar(options = {}) {
   const silent = Boolean(options.silent);
   const notifyOnChange = Boolean(options.notifyOnChange);
-  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim();
+  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim() || DEFAULT_WEBHOOK_URL;
   if (!url) {
     if (!silent) showToast("Apps Script 웹앱 URL을 먼저 입력하세요.");
     return false;
@@ -855,7 +857,7 @@ async function pullCalendar(options = {}) {
 }
 
 async function syncCalendarAfterReservation(reservation) {
-  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim();
+  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim() || DEFAULT_WEBHOOK_URL;
   if (!url) return false;
   const customer = getCustomer(reservation.customerId);
   const payload = {
@@ -1124,15 +1126,16 @@ function importJson(event) {
       state.visits = imported.visits || [];
       state.reservations = imported.reservations || [];
       state.settings = {
-        sheetWebhookUrl: "",
+        sheetWebhookUrl: DEFAULT_WEBHOOK_URL,
         calendarId: DEFAULT_CALENDAR_ID,
         calendarDuration: 60,
         ...(imported.settings || {}),
       };
+      if (!state.settings.sheetWebhookUrl) state.settings.sheetWebhookUrl = DEFAULT_WEBHOOK_URL;
       state.selectedCustomerId = null;
       migrateState();
       saveState();
-      $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || "";
+      $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || DEFAULT_WEBHOOK_URL;
       $("#calendarId").value = state.settings.calendarId || DEFAULT_CALENDAR_ID;
       $("#calendarDuration").value = state.settings.calendarDuration || 60;
       renderAll();
