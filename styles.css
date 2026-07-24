@@ -508,6 +508,37 @@ textarea {
   color: var(--ink);
 }
 
+.reservation-record-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.reservation-record-grid div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #f8fafb;
+  min-width: 0;
+}
+
+.reservation-record-grid span {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.reservation-record-grid strong {
+  display: block;
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .photo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
@@ -808,6 +839,10 @@ dialog::backdrop {
   .reservation-actions .secondary-button {
     flex: 1 1 0;
     min-width: 0;
+  }
+
+  .reservation-record-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   dialog {

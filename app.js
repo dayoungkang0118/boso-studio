@@ -629,7 +629,7 @@ function renderReservationItem(reservation) {
   const displayStatus = linkedVisit ? "촬영완료" : reservation.status;
   const statusClass = displayStatus === "예약" ? "" : displayStatus === "촬영완료" ? "done" : "warning";
   const isVisitRecord = reservation.itemType === "visit";
-  const paidMarkup = linkedVisit || standaloneVisit ? renderReservationPaymentSummary(linkedVisit || standaloneVisit) : "";
+  const paidMarkup = renderReservationRecordSummary(reservation, linkedVisit || standaloneVisit);
   const actionLabel = linkedVisit ? "예약/촬영/결제 수정" : "예약/촬영/결제 입력";
   return `
     <article class="list-item">
@@ -651,15 +651,26 @@ function renderReservationItem(reservation) {
     </article>`;
 }
 
-function renderReservationPaymentSummary(visit) {
+function renderReservationRecordSummary(reservation, visit) {
+  if (!visit) {
+    return `
+      <div class="reservation-record-grid">
+        <div><span>예약</span><strong>${formatDate(reservation.date)}${reservation.time ? ` ${escapeHtml(reservation.time)}` : ""}</strong></div>
+        <div><span>촬영</span><strong>촬영 전</strong></div>
+        <div><span>결제</span><strong>결제 전</strong></div>
+        <div><span>완료</span><strong>${escapeHtml(reservation.status || "예약")}</strong></div>
+      </div>`;
+  }
+
   const paidAmount = getPaidAmount(visit);
   const remainingAmount = getRemainingAmount(visit);
   const settlementStatus = getSettlementStatus(visit);
   return `
-    <div class="payment-breakdown reservation-payment">
-      <div><strong>총금액</strong> ${formatWon(visit.totalAmount)} · <strong>총 받은 금액</strong> ${formatWon(paidAmount)} · <strong>남은 금액</strong> ${formatWon(remainingAmount)}</div>
-      <div><strong>계약금</strong> ${formatWon(visit.deposit)} · <strong>잔금</strong> ${formatWon(visit.balance)} · <strong>정산</strong> ${escapeHtml(settlementStatus)}</div>
-      <div><strong>택배여부</strong> ${escapeHtml(visit.deliveryStatus || "없음")}</div>
+    <div class="reservation-record-grid">
+      <div><span>예약</span><strong>${formatDate(reservation.date)}${reservation.time ? ` ${escapeHtml(reservation.time)}` : ""}</strong></div>
+      <div><span>촬영</span><strong>${formatDate(visit.date)} · ${escapeHtml(visit.shootType || reservation.shootType || "-")}</strong></div>
+      <div><span>결제</span><strong>${formatWon(paidAmount)} / ${formatWon(visit.totalAmount)}</strong></div>
+      <div><span>완료</span><strong>${escapeHtml(settlementStatus)} · ${escapeHtml(visit.deliveryStatus || "없음")}</strong></div>
     </div>`;
 }
 
