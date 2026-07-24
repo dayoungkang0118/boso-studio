@@ -118,10 +118,6 @@ function migrateState() {
   state.reservations.forEach((reservation) => {
     if (idMap.has(reservation.customerId)) reservation.customerId = idMap.get(reservation.customerId);
   });
-  state.reservations = state.reservations.filter((reservation) => {
-    const isCalendarImported = reservation.calendarEventId || String(reservation.id || "").startsWith("cal-");
-    return !isCalendarImported || reservation.date >= toDateInput(new Date());
-  });
 }
 
 function seedSampleData() {
@@ -180,7 +176,6 @@ async function init() {
   $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || DEFAULT_WEBHOOK_URL;
   $("#calendarId").value = DEFAULT_CALENDAR_ID;
   $("#calendarDuration").value = state.settings.calendarDuration || 60;
-  $("#reservationDateFilter").value = "";
 
   bindEvents();
   renderAll();
@@ -215,7 +210,6 @@ function bindEvents() {
   $("#customerSearch").addEventListener("input", renderCustomers);
   $("#shootTypeFilter").addEventListener("change", renderCustomers);
   $("#reservationSearch").addEventListener("input", renderReservations);
-  $("#reservationDateFilter").addEventListener("change", renderReservations);
 
   $("#customerForm").addEventListener("submit", handleCustomerSubmit);
   $("#visitForm").addEventListener("submit", handleVisitSubmit);
@@ -505,37 +499,59 @@ function renderVisitSummary(visit) {
 
 function renderReservations() {
   const query = normalize($("#reservationSearch").value);
-  const date = $("#reservationDateFilter").value;
-  const reservations = state.reservations
+  const reservations = getReservationTimelineItems()
     .filter((reservation) => {
       const customer = getCustomer(reservation.customerId);
       const haystack = normalize([customer?.name, customer?.phone, reservation.shootType, reservation.productName, reservation.staff, reservation.memo].join(" "));
-      return (!query || haystack.includes(query)) && (!date || reservation.date === date);
+      return !query || haystack.includes(query);
     })
-    .sort((a, b) => `${a.date} ${a.time}`.localeCompare(`${b.date} ${b.time}`));
+    .sort((a, b) => `${a.date} ${a.time || ""}`.localeCompare(`${b.date} ${b.time || ""}`));
 
   $("#reservationList").innerHTML = reservations.length
     ? reservations.map(renderReservationItem).join("")
     : `<div class="empty-state">예약이 없습니다.</div>`;
 }
 
+function getReservationTimelineItems() {
+  const reservationItems = state.reservations.map((reservation) => ({
+    ...reservation,
+    itemType: "reservation",
+  }));
+
+  const visitItems = state.visits.map((visit) => ({
+    id: `visit-${visit.id}`,
+    customerId: visit.customerId,
+    date: visit.date,
+    time: "",
+    shootType: visit.shootType,
+    productName: visit.productName,
+    staff: visit.balancePaymentStaff || "",
+    status: "촬영완료",
+    memo: visit.memo,
+    itemType: "visit",
+  }));
+
+  return [...reservationItems, ...visitItems];
+}
+
 function renderReservationItem(reservation) {
   const customer = getCustomer(reservation.customerId);
   const statusClass = reservation.status === "예약" ? "" : reservation.status === "촬영완료" ? "done" : "warning";
+  const isVisitRecord = reservation.itemType === "visit";
   return `
     <article class="list-item">
       <div class="item-top">
         <div>
-          <div class="item-title">${formatDate(reservation.date)} ${reservation.time} · ${escapeHtml(customer?.name || "삭제된 고객")}</div>
-          <div class="item-meta">${escapeHtml(customer?.phone || "-")} · ${escapeHtml(reservation.shootType)}${reservation.productName ? ` · ${escapeHtml(reservation.productName)}` : ""} · 담당 ${escapeHtml(reservation.staff || "-")}</div>
+          <div class="item-title">${formatDate(reservation.date)}${reservation.time ? ` ${escapeHtml(reservation.time)}` : ""} · ${escapeHtml(customer?.name || "삭제된 고객")}</div>
+          <div class="item-meta">${escapeHtml(customer?.phone || "-")} · ${escapeHtml(reservation.shootType)}${reservation.productName ? ` · ${escapeHtml(reservation.productName)}` : ""}${isVisitRecord ? " · 촬영 기록" : ` · 담당 ${escapeHtml(reservation.staff || "-")}`}</div>
           ${reservation.memo ? `<div class="item-meta">${escapeHtml(reservation.memo)}</div>` : ""}
         </div>
         <span class="badge ${statusClass}">${escapeHtml(reservation.status)}</span>
       </div>
-      <div class="button-row reservation-actions">
+      ${isVisitRecord ? "" : `<div class="button-row reservation-actions">
         <button class="secondary-button edit-reservation" type="button" data-reservation-id="${escapeHtml(reservation.id)}">예약 수정</button>
         <button class="secondary-button danger-button delete-reservation" type="button" data-reservation-id="${escapeHtml(reservation.id)}">삭제</button>
-      </div>
+      </div>`}
     </article>`;
 }
 
