@@ -218,12 +218,28 @@
     <dialog id="visitModal">
       <form method="dialog" class="modal-form" id="visitForm">
         <div class="modal-head">
-          <h2>방문/촬영 기록</h2>
+          <h2>예약/촬영/결제 기록</h2>
           <button value="cancel" class="icon-button" type="button" data-close-modal="visitModal">×</button>
         </div>
         <input type="hidden" name="customerId" />
         <input type="hidden" name="visitId" />
         <input type="hidden" name="reservationId" />
+        <div class="form-section">
+          <h3>예약 내용</h3>
+          <div class="form-grid">
+            <label><span>예약 시간</span><input type="time" name="reservationTime" /></label>
+            <label><span>담당 직원</span><input name="reservationStaff" /></label>
+            <label>
+              <span>예약 상태</span>
+              <select name="reservationStatus">
+                <option>예약</option>
+                <option>촬영완료</option>
+                <option>취소</option>
+                <option>노쇼</option>
+              </select>
+            </label>
+          </div>
+        </div>
         <div class="form-section">
           <h3>촬영 내용</h3>
           <div class="form-grid">

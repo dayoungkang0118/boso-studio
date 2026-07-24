@@ -475,6 +475,7 @@ function renderCustomerDetail() {
     $("#visitForm").reservationId.value = "";
     $("#visitForm").customerId.value = customer.id;
     $("#visitForm").date.value = toDateInput(new Date());
+    $("#visitForm").reservationStatus.value = "촬영완료";
     $("#visitModal").showModal();
   });
 
@@ -524,6 +525,10 @@ function openVisitEditor(visitId) {
   form.visitId.value = visit.id;
   form.reservationId.value = visit.reservationId || "";
   form.customerId.value = visit.customerId;
+  const reservation = visit.reservationId ? state.reservations.find((item) => item.id === visit.reservationId) : null;
+  form.reservationTime.value = reservation?.time || "";
+  form.reservationStaff.value = reservation?.staff || "";
+  form.reservationStatus.value = reservation?.status || "촬영완료";
   form.date.value = visit.date || "";
   form.shootType.value = visit.shootType || "아기사진";
   form.productName.value = visit.productName || "";
@@ -625,7 +630,7 @@ function renderReservationItem(reservation) {
   const statusClass = displayStatus === "예약" ? "" : displayStatus === "촬영완료" ? "done" : "warning";
   const isVisitRecord = reservation.itemType === "visit";
   const paidMarkup = linkedVisit || standaloneVisit ? renderReservationPaymentSummary(linkedVisit || standaloneVisit) : "";
-  const actionLabel = linkedVisit ? "촬영/결제 수정" : "촬영/결제 입력";
+  const actionLabel = linkedVisit ? "예약/촬영/결제 수정" : "예약/촬영/결제 입력";
   return `
     <article class="list-item">
       <div class="item-top">
@@ -638,10 +643,9 @@ function renderReservationItem(reservation) {
       </div>
       ${paidMarkup}
       ${isVisitRecord ? `<div class="button-row reservation-actions">
-        <button class="secondary-button edit-visit" type="button" data-visit-id="${escapeHtml(reservation.visitId || "")}">촬영/결제 수정</button>
+        <button class="secondary-button edit-visit" type="button" data-visit-id="${escapeHtml(reservation.visitId || "")}">예약/촬영/결제 수정</button>
       </div>` : `<div class="button-row reservation-actions">
         <button class="primary-button complete-reservation" type="button" data-reservation-id="${escapeHtml(reservation.id)}">${actionLabel}</button>
-        <button class="secondary-button edit-reservation" type="button" data-reservation-id="${escapeHtml(reservation.id)}">예약 수정</button>
         <button class="secondary-button danger-button delete-reservation" type="button" data-reservation-id="${escapeHtml(reservation.id)}">삭제</button>
       </div>`}
     </article>`;
@@ -748,6 +752,8 @@ async function handleVisitSubmit(event) {
   const visitId = form.get("visitId");
   const photos = await filesToDataUrls(formElement.photos.files);
   const existingVisit = state.visits.find((item) => item.id === visitId) || (reservationId ? getVisitByReservationId(reservationId) : null);
+  const reservation = reservationId ? state.reservations.find((item) => item.id === reservationId) : null;
+  const selectedStatus = form.get("reservationStatus") || (reservation ? reservation.status : "촬영완료");
   const visit = {
     id: existingVisit?.id || visitId || newId(),
     customerId,
@@ -767,25 +773,33 @@ async function handleVisitSubmit(event) {
     reservationId,
     createdAt: existingVisit?.createdAt || new Date().toISOString(),
   };
+  const hasPayment = Number(visit.totalAmount || 0) > 0 || Number(visit.deposit || 0) > 0 || Number(visit.balance || 0) > 0;
+  const hasShootCompletion = selectedStatus === "촬영완료";
+  const hasShootDetails = photos.length > 0 || visit.deliveryStatus !== "없음" || Boolean(visit.balancePaymentStaff) || visit.balancePaymentMethod !== "미결제";
+  const shouldSaveVisit = Boolean(existingVisit || !reservationId || hasPayment || hasShootCompletion || hasShootDetails);
 
-  if (existingVisit) {
-    Object.assign(existingVisit, visit);
-  } else {
-    state.visits.unshift(visit);
+  if (shouldSaveVisit) {
+    if (existingVisit) {
+      Object.assign(existingVisit, visit);
+    } else {
+      state.visits.unshift(visit);
+    }
   }
-  const reservation = reservationId ? state.reservations.find((item) => item.id === reservationId) : null;
   if (reservation) {
-    reservation.status = "촬영완료";
+    reservation.status = selectedStatus === "예약" && shouldSaveVisit ? "촬영완료" : selectedStatus;
     reservation.date = visit.date || reservation.date;
+    reservation.time = form.get("reservationTime") || reservation.time || "";
+    reservation.staff = form.get("reservationStaff").trim();
     reservation.shootType = visit.shootType || reservation.shootType;
     reservation.productName = visit.productName || reservation.productName;
+    reservation.memo = visit.memo || reservation.memo;
   }
   saveState();
   queueCloudSync();
   $("#visitModal").close();
   renderAll();
   if (reservation) await syncCalendarAfterReservation(reservation);
-  showToast(existingVisit ? "촬영/결제 기록이 수정되었습니다." : "촬영/결제 기록이 저장되었습니다.");
+  showToast(shouldSaveVisit ? (existingVisit ? "예약/촬영/결제 기록이 수정되었습니다." : "예약/촬영/결제 기록이 저장되었습니다.") : "예약 정보가 수정되었습니다.");
 }
 
 async function handleReservationSubmit(event) {
@@ -841,12 +855,6 @@ function handleReservationActionClick(event) {
     return;
   }
 
-  const editButton = event.target.closest(".edit-reservation");
-  if (editButton) {
-    openReservationEditor(editButton.dataset.reservationId);
-    return;
-  }
-
   const deleteButton = event.target.closest(".delete-reservation");
   if (deleteButton) {
     deleteReservation(deleteButton.dataset.reservationId);
@@ -863,6 +871,9 @@ function openReservationVisitEditor(reservationId) {
   form.visitId.value = existingVisit?.id || "";
   form.reservationId.value = reservation.id;
   form.customerId.value = reservation.customerId;
+  form.reservationTime.value = reservation.time || "";
+  form.reservationStaff.value = reservation.staff || "";
+  form.reservationStatus.value = existingVisit ? "촬영완료" : reservation.status || "예약";
   form.date.value = existingVisit?.date || reservation.date || toDateInput(new Date());
   form.shootType.value = existingVisit?.shootType || reservation.shootType || "아기사진";
   form.productName.value = existingVisit?.productName || reservation.productName || "";
@@ -874,28 +885,6 @@ function openReservationVisitEditor(reservationId) {
   form.deliveryStatus.value = existingVisit?.deliveryStatus || "없음";
   form.memo.value = existingVisit?.memo || reservation.memo || "";
   $("#visitModal").showModal();
-}
-
-function openReservationEditor(reservationId) {
-  const reservation = state.reservations.find((item) => item.id === reservationId);
-  if (!reservation) return;
-
-  const form = $("#reservationForm");
-  form.reset();
-  $("#reservationCustomerSearch").value = "";
-  fillCustomerSelect();
-  setReservationCustomerMode("existing");
-  form.dataset.reservationId = reservation.id;
-  form.dataset.returnView = getActiveView();
-  form.customerId.value = reservation.customerId;
-  form.date.value = reservation.date;
-  form.time.value = reservation.time;
-  form.shootType.value = reservation.shootType;
-  form.productName.value = reservation.productName || "";
-  form.staff.value = reservation.staff || "";
-  form.status.value = reservation.status;
-  form.memo.value = reservation.memo || "";
-  $("#reservationModal").showModal();
 }
 
 async function deleteReservation(reservationId) {
