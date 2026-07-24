@@ -210,12 +210,16 @@ function bindEvents() {
 
   $("#openCustomerModal").addEventListener("click", () => {
     $("#customerForm").reset();
+    delete $("#customerForm").dataset.customerId;
+    $("#customerModalTitle").textContent = "고객 등록";
+    setCustomerFirstVisitFields(true);
     $("#customerModal").showModal();
   });
 
   $("#openReservationModal").addEventListener("click", () => {
     $("#reservationForm").reset();
     delete $("#reservationForm").dataset.reservationId;
+    delete $("#reservationForm").dataset.returnView;
     fillCustomerSelect();
     setReservationCustomerMode(state.customers.length ? "existing" : "new");
     $("#reservationForm").date.value = toDateInput(new Date());
@@ -252,6 +256,10 @@ function switchView(view) {
   $(`#${view}View`).classList.add("active");
   $("#pageTitle").textContent = titles[view][0];
   $("#pageSubTitle").textContent = titles[view][1];
+}
+
+function getActiveView() {
+  return $(".nav-button.active")?.dataset.view || "reservations";
 }
 
 function renderAll() {
@@ -424,7 +432,10 @@ function renderCustomerDetail() {
         <p class="muted">${escapeHtml(customer.phone)} · 아이: ${escapeHtml(customer.childName || "-")}</p>
         ${customer.address ? `<p class="muted">주소: ${escapeHtml(customer.address)}</p>` : ""}
       </div>
-      <button class="primary-button" id="addVisit">+ 방문 기록</button>
+      <div class="button-row detail-actions">
+        <button class="secondary-button" id="editCustomerInfo" type="button">고객정보 수정</button>
+        <button class="primary-button" id="addVisit" type="button">+ 방문 기록</button>
+      </div>
     </div>
     <div class="detail-grid">
       <div class="info-box"><span>총 방문</span><strong>${visits.length}회</strong></div>
@@ -446,6 +457,8 @@ function renderCustomerDetail() {
     $("#visitForm").date.value = toDateInput(new Date());
     $("#visitModal").showModal();
   });
+
+  $("#editCustomerInfo").addEventListener("click", () => openCustomerEditor(customer.id));
 
   $$(".edit-visit").forEach((button) => {
     button.addEventListener("click", () => openVisitEditor(button.dataset.visitId));
@@ -577,20 +590,27 @@ function renderReservationItem(reservation) {
 
 function handleCustomerSubmit(event) {
   event.preventDefault();
+  const formElement = event.currentTarget;
   const form = new FormData(event.currentTarget);
+  const existingCustomer = state.customers.find((item) => item.id === formElement.dataset.customerId);
   const customer = {
-    id: nextCustomerId(),
+    id: existingCustomer?.id || nextCustomerId(),
     name: form.get("name").trim(),
     phone: form.get("phone").trim(),
     childName: form.get("childName").trim(),
     childInfo: form.get("childInfo").trim(),
     address: form.get("address").trim(),
     memo: form.get("memo").trim(),
-    createdAt: new Date().toISOString(),
+    createdAt: existingCustomer?.createdAt || new Date().toISOString(),
   };
 
-  state.customers.unshift(customer);
-  if (form.get("firstVisitDate") && form.get("firstShootType")) {
+  if (existingCustomer) {
+    Object.assign(existingCustomer, customer);
+  } else {
+    state.customers.unshift(customer);
+  }
+
+  if (!existingCustomer && form.get("firstVisitDate") && form.get("firstShootType")) {
     state.visits.unshift({
       id: newId(),
       customerId: customer.id,
@@ -613,9 +633,38 @@ function handleCustomerSubmit(event) {
   state.selectedCustomerId = customer.id;
   saveState();
   $("#customerModal").close();
+  delete formElement.dataset.customerId;
   renderAll();
   switchView("customers");
-  showToast("고객이 등록되었습니다.");
+  showToast(existingCustomer ? "고객정보가 수정되었습니다." : "고객이 등록되었습니다.");
+}
+
+function openCustomerEditor(customerId) {
+  const customer = getCustomer(customerId);
+  if (!customer) return;
+
+  const form = $("#customerForm");
+  form.reset();
+  form.dataset.customerId = customer.id;
+  $("#customerModalTitle").textContent = "고객정보 수정";
+  form.name.value = customer.name || "";
+  form.phone.value = customer.phone || "";
+  form.childName.value = customer.childName || "";
+  form.childInfo.value = customer.childInfo || "";
+  form.address.value = customer.address || "";
+  form.memo.value = customer.memo || "";
+  setCustomerFirstVisitFields(false);
+  $("#customerModal").showModal();
+}
+
+function setCustomerFirstVisitFields(isVisible) {
+  $$(".customer-first-visit-field").forEach((field) => {
+    field.hidden = !isVisible;
+    field.querySelectorAll("input, select").forEach((input) => {
+      input.disabled = !isVisible;
+      if (!isVisible) input.value = "";
+    });
+  });
 }
 
 async function handleVisitSubmit(event) {
@@ -685,8 +734,10 @@ async function handleReservationSubmit(event) {
   saveState();
   $("#reservationModal").close();
   delete formElement.dataset.reservationId;
+  const returnView = formElement.dataset.returnView || "reservations";
+  delete formElement.dataset.returnView;
   renderAll();
-  switchView("reservations");
+  switchView(returnView);
   const calendarSynced = await syncCalendarAfterReservation(reservation);
   const actionText = existingReservation ? "수정" : "등록";
   showToast(calendarSynced ? `예약이 ${actionText}되고 Google Calendar에 반영되었습니다.` : `예약은 ${actionText}됐지만 Google Calendar 반영은 실패했습니다.`);
@@ -714,6 +765,7 @@ function openReservationEditor(reservationId) {
   fillCustomerSelect();
   setReservationCustomerMode("existing");
   form.dataset.reservationId = reservation.id;
+  form.dataset.returnView = getActiveView();
   form.customerId.value = reservation.customerId;
   form.date.value = reservation.date;
   form.time.value = reservation.time;
