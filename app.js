@@ -84,6 +84,13 @@ function saveState() {
 
 function migrateState() {
   const idMap = new Map();
+  state.settings = {
+    sheetWebhookUrl: "",
+    calendarId: DEFAULT_CALENDAR_ID,
+    calendarDuration: 60,
+    ...(state.settings || {}),
+  };
+  state.settings.calendarId = DEFAULT_CALENDAR_ID;
 
   state.customers.forEach((customer) => {
     if (String(customer.id || "").startsWith("BOSO-")) {
@@ -165,7 +172,7 @@ async function init() {
   await loadState();
   loadAppsScriptSample();
   $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || "";
-  $("#calendarId").value = state.settings.calendarId || DEFAULT_CALENDAR_ID;
+  $("#calendarId").value = DEFAULT_CALENDAR_ID;
   $("#calendarDuration").value = state.settings.calendarDuration || 60;
   $("#reservationDateFilter").value = "";
 
@@ -703,8 +710,8 @@ function saveWebhook() {
 }
 
 function saveCalendarSettings(showMessage = true) {
-  state.settings.calendarId = normalizeCalendarId($("#calendarId").value.trim()) || DEFAULT_CALENDAR_ID;
-  $("#calendarId").value = state.settings.calendarId;
+  state.settings.calendarId = DEFAULT_CALENDAR_ID;
+  $("#calendarId").value = DEFAULT_CALENDAR_ID;
   state.settings.calendarDuration = Number($("#calendarDuration").value || 60);
   saveState();
   if (showMessage) showToast("캘린더 설정이 저장되었습니다.");
