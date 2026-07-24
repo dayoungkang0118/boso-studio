@@ -3,6 +3,8 @@ const DB_NAME = "boso-studio-manager-db";
 const DB_STORE = "app-state";
 const DB_VERSION = 1;
 const DEFAULT_CALENDAR_ID = "cf68d0dee8e4775e5f4ccd99b64727c9932f5512b08e8e7f8aa04ade1df853a0@group.calendar.google.com";
+const CALENDAR_PULL_INTERVAL_MS = 60 * 1000;
+let calendarPullTimer = null;
 
 const state = {
   customers: [],
@@ -169,6 +171,8 @@ async function init() {
 
   bindEvents();
   renderAll();
+  startAutoCalendarPull();
+  pullCalendar({ silent: true, notifyOnChange: true });
 }
 
 function bindEvents() {
@@ -212,6 +216,7 @@ function bindEvents() {
   $("#pushSheets").addEventListener("click", pushSheets);
   $("#pullSheets").addEventListener("click", pullSheets);
   $("#pushCalendar").addEventListener("click", pushCalendar);
+  $("#pullCalendar").addEventListener("click", pullCalendar);
   $("#exportJson").addEventListener("click", exportJson);
   $("#exportCsv").addEventListener("click", exportCsv);
   $("#importJson").addEventListener("change", importJson);
@@ -814,6 +819,34 @@ async function pushCalendar(options = {}) {
   }
 }
 
+async function pullCalendar(options = {}) {
+  const silent = Boolean(options.silent);
+  const notifyOnChange = Boolean(options.notifyOnChange);
+  const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim();
+  if (!url) {
+    if (!silent) showToast("Apps Script 웹앱 URL을 먼저 입력하세요.");
+    return false;
+  }
+
+  saveCalendarSettings(false);
+
+  try {
+    const data = await fetchCalendarReservationsJsonp(url);
+    const result = mergeCalendarReservations(data.reservations || []);
+    if (result.added || result.updated || result.customersAdded || result.customersUpdated) {
+      saveState();
+      renderAll();
+    }
+
+    const message = `캘린더에서 예약 ${result.added}건 추가, ${result.updated}건 수정했습니다.`;
+    if (!silent || (notifyOnChange && (result.added || result.updated))) showToast(message);
+    return true;
+  } catch {
+    if (!silent) showToast("캘린더 가져오기에 실패했습니다. Apps Script 배포와 캘린더 권한을 확인하세요.");
+    return false;
+  }
+}
+
 async function syncCalendarAfterReservation(reservation) {
   const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim();
   if (!url) return false;
@@ -866,6 +899,39 @@ function fetchCalendarReservationJsonp(url, reservation) {
   });
 }
 
+function fetchCalendarReservationsJsonp(url) {
+  return new Promise((resolve, reject) => {
+    const callbackName = `bosoCalendarPullCallback${Date.now()}`;
+    const script = document.createElement("script");
+    const separator = url.includes("?") ? "&" : "?";
+    const calendarId = encodeURIComponent(normalizeCalendarId(state.settings.calendarId) || DEFAULT_CALENDAR_ID);
+    const rangeStart = encodeURIComponent(toDateInput(addDays(new Date(), -180)));
+    const rangeEnd = encodeURIComponent(toDateInput(addDays(new Date(), 365)));
+    const timer = window.setTimeout(() => {
+      cleanup();
+      reject(new Error("Google Calendar pull request timed out"));
+    }, 15000);
+
+    window[callbackName] = (data) => {
+      cleanup();
+      resolve(data);
+    };
+
+    function cleanup() {
+      window.clearTimeout(timer);
+      delete window[callbackName];
+      script.remove();
+    }
+
+    script.onerror = () => {
+      cleanup();
+      reject(new Error("Google Calendar pull request failed"));
+    };
+    script.src = `${url}${separator}action=getCalendarReservations&calendarId=${calendarId}&rangeStart=${rangeStart}&rangeEnd=${rangeEnd}&callback=${callbackName}&ts=${Date.now()}`;
+    document.body.appendChild(script);
+  });
+}
+
 function fetchSheetJsonp(url) {
   return new Promise((resolve, reject) => {
     const callbackName = `bosoSheetCallback${Date.now()}`;
@@ -894,6 +960,104 @@ function fetchSheetJsonp(url) {
     script.src = `${url}${separator}callback=${callbackName}&ts=${Date.now()}`;
     document.body.appendChild(script);
   });
+}
+
+function startAutoCalendarPull() {
+  if (calendarPullTimer) window.clearInterval(calendarPullTimer);
+  calendarPullTimer = window.setInterval(() => {
+    pullCalendar({ silent: true, notifyOnChange: true });
+  }, CALENDAR_PULL_INTERVAL_MS);
+}
+
+function mergeCalendarReservations(calendarReservations) {
+  const result = { added: 0, updated: 0, customersAdded: 0, customersUpdated: 0 };
+
+  calendarReservations.forEach((calendarReservation) => {
+    if (!calendarReservation.id || !calendarReservation.date) return;
+
+    const customerResult = ensureCalendarCustomer(calendarReservation);
+    const reservation = {
+      id: calendarReservation.id,
+      customerId: customerResult.customer.id,
+      date: calendarReservation.date,
+      time: calendarReservation.time || "00:00",
+      shootType: calendarReservation.shootType || "촬영",
+      productName: calendarReservation.productName || "",
+      staff: calendarReservation.staff || "",
+      status: calendarReservation.status || "예약",
+      memo: calendarReservation.memo || "",
+      createdAt: calendarReservation.createdAt || new Date().toISOString(),
+      calendarEventId: calendarReservation.calendarEventId || "",
+      calendarUpdatedAt: calendarReservation.calendarUpdatedAt || "",
+    };
+
+    result.customersAdded += customerResult.added ? 1 : 0;
+    result.customersUpdated += customerResult.updated ? 1 : 0;
+
+    const existing = state.reservations.find((item) => item.id === reservation.id);
+    if (!existing) {
+      state.reservations.push(reservation);
+      result.added += 1;
+      return;
+    }
+
+    if (hasReservationChanged(existing, reservation)) {
+      Object.assign(existing, {
+        ...reservation,
+        createdAt: existing.createdAt || reservation.createdAt,
+      });
+      result.updated += 1;
+    }
+  });
+
+  return result;
+}
+
+function ensureCalendarCustomer(calendarReservation) {
+  const customerName = calendarReservation.customerName || "캘린더 고객";
+  const customerPhone = calendarReservation.customerPhone || "";
+  const childName = calendarReservation.childName || "";
+  let customer = calendarReservation.customerId ? getCustomer(calendarReservation.customerId) : null;
+
+  if (!customer && customerPhone) {
+    customer = state.customers.find((item) => normalize(item.phone) === normalize(customerPhone));
+  }
+
+  if (!customer && customerName !== "캘린더 고객") {
+    customer = state.customers.find((item) => normalize(item.name) === normalize(customerName));
+  }
+
+  if (!customer) {
+    customer = {
+      id: nextCustomerId(),
+      name: customerName,
+      phone: customerPhone,
+      childName,
+      childInfo: "",
+      address: "",
+      memo: "Google Calendar에서 가져온 고객",
+      createdAt: new Date().toISOString(),
+    };
+    state.customers.push(customer);
+    return { customer, added: true, updated: false };
+  }
+
+  let updated = false;
+  if (customerPhone && !customer.phone) {
+    customer.phone = customerPhone;
+    updated = true;
+  }
+  if (childName && !customer.childName) {
+    customer.childName = childName;
+    updated = true;
+  }
+
+  return { customer, added: false, updated };
+}
+
+function hasReservationChanged(existing, next) {
+  return ["customerId", "date", "time", "shootType", "productName", "staff", "status", "memo", "calendarEventId", "calendarUpdatedAt"]
+    .some((key) => String(existing[key] || "") !== String(next[key] || ""));
 }
 
 function loadAppsScriptSample() {
@@ -1079,6 +1243,12 @@ function lastMonths(count) {
   }
 
   return result;
+}
+
+function addDays(date, days) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
 }
 
 function toDateInput(date) {
