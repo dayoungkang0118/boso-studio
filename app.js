@@ -118,6 +118,10 @@ function migrateState() {
   state.reservations.forEach((reservation) => {
     if (idMap.has(reservation.customerId)) reservation.customerId = idMap.get(reservation.customerId);
   });
+  state.reservations = state.reservations.filter((reservation) => {
+    const isCalendarImported = reservation.calendarEventId || String(reservation.id || "").startsWith("cal-");
+    return !isCalendarImported || reservation.date >= toDateInput(new Date());
+  });
 }
 
 function seedSampleData() {
@@ -180,8 +184,6 @@ async function init() {
 
   bindEvents();
   renderAll();
-  startAutoCalendarPull();
-  pullCalendar({ silent: true, notifyOnChange: true });
 }
 
 function bindEvents() {
@@ -225,7 +227,6 @@ function bindEvents() {
   $("#pushSheets").addEventListener("click", pushSheets);
   $("#pullSheets").addEventListener("click", pullSheets);
   $("#pushCalendar").addEventListener("click", pushCalendar);
-  $("#pullCalendar").addEventListener("click", pullCalendar);
   $("#exportJson").addEventListener("click", exportJson);
   $("#exportCsv").addEventListener("click", exportCsv);
   $("#importJson").addEventListener("change", importJson);
@@ -256,6 +257,7 @@ function renderDashboard() {
   $("#currentMonthVisitCount").textContent = `${revenue.currentMonthVisitCount}건`;
   $("#monthlyRevenueChart").innerHTML = renderMonthlyRevenueChart(revenue.monthly);
   $("#shootTypeRevenueList").innerHTML = renderShootTypeRevenue(revenue.byShootType);
+  $("#reservationTimeline").innerHTML = renderReservationTimeline();
 
   const today = toDateInput(new Date());
   const todays = state.reservations
@@ -270,6 +272,34 @@ function renderDashboard() {
   $("#recentVisitList").innerHTML = recent.length
     ? recent.map(renderVisitSummary).join("")
     : `<div class="empty-state">방문 기록이 없습니다.</div>`;
+}
+
+function renderReservationTimeline() {
+  const today = toDateInput(new Date());
+  const reservations = state.reservations
+    .filter((reservation) => reservation.status !== "취소" && reservation.date >= today)
+    .sort((a, b) => `${a.date} ${a.time || ""}`.localeCompare(`${b.date} ${b.time || ""}`));
+
+  if (!reservations.length) {
+    return `<div class="empty-state compact">오늘 이후 예약이 없습니다.</div>`;
+  }
+
+  let currentMonth = "";
+  return reservations.map((reservation) => {
+    const customer = getCustomer(reservation.customerId);
+    const month = reservation.date.slice(0, 7);
+    const monthLabel = month !== currentMonth ? `<div class="timeline-month">${formatMonth(month)}</div>` : "";
+    currentMonth = month;
+
+    return `
+      ${monthLabel}
+      <article class="timeline-item">
+        <div class="timeline-date">${formatDate(reservation.date)}</div>
+        <div class="timeline-time">${escapeHtml(reservation.time || "-")}</div>
+        <div class="timeline-name">${escapeHtml(customer?.name || "삭제된 고객")}</div>
+        <div class="timeline-meta">${escapeHtml(reservation.shootType || "촬영")}${reservation.productName ? ` · ${escapeHtml(reservation.productName)}` : ""}</div>
+      </article>`;
+  }).join("");
 }
 
 function getRevenueSummary() {
@@ -1235,6 +1265,12 @@ function formatDate(value) {
   if (!value) return "-";
   const [year, month, day] = value.split("-");
   return `${year}.${month}.${day}`;
+}
+
+function formatMonth(value) {
+  if (!value) return "-";
+  const [year, month] = value.split("-");
+  return `${year}년 ${Number(month)}월`;
 }
 
 function toMonthKey(date) {

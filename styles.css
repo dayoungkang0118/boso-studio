@@ -145,6 +145,66 @@ h2 {
   margin-bottom: 18px;
 }
 
+.schedule-panel {
+  margin-bottom: 18px;
+}
+
+.schedule-timeline {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(176px, 220px);
+  gap: 10px;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x proximity;
+  padding: 4px 2px 8px;
+  cursor: grab;
+}
+
+.timeline-month {
+  display: grid;
+  align-content: center;
+  min-height: 112px;
+  border-left: 3px solid var(--accent);
+  padding: 0 12px;
+  color: var(--accent-strong);
+  font-weight: 900;
+}
+
+.timeline-item {
+  scroll-snap-align: start;
+  min-height: 112px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px;
+  background: #f8fafb;
+}
+
+.timeline-date {
+  color: var(--accent-strong);
+  font-weight: 900;
+}
+
+.timeline-time {
+  margin-top: 4px;
+  font-size: 24px;
+  font-weight: 900;
+}
+
+.timeline-name {
+  margin-top: 8px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.timeline-meta {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .metric,
 .panel {
   min-width: 0;
@@ -728,6 +788,10 @@ dialog::backdrop {
 
   .metric-grid {
     gap: 10px;
+  }
+
+  .schedule-timeline {
+    grid-auto-columns: minmax(156px, 82vw);
   }
 
   .revenue-chart {

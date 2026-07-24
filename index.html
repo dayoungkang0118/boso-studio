@@ -34,6 +34,14 @@
         </header>
 
         <section class="view active" id="dashboardView">
+          <section class="panel schedule-panel">
+            <div class="panel-head">
+              <h2>촬영일 흐름</h2>
+              <button class="ghost-button" data-view-target="reservations">예약관리</button>
+            </div>
+            <div class="schedule-timeline" id="reservationTimeline"></div>
+          </section>
+
           <div class="metric-grid">
             <article class="metric">
               <span>전체 고객</span>
@@ -164,9 +172,8 @@
             <div class="button-row">
               <button class="primary-button" id="saveCalendarSettings">저장</button>
               <button class="secondary-button" id="pushCalendar">예약을 캘린더로 보내기</button>
-              <button class="secondary-button" id="pullCalendar">캘린더에서 가져오기</button>
             </div>
-            <p class="muted">앱을 열면 캘린더 일정을 자동으로 가져오고, 앱에서 등록/수정한 예약은 같은 예약ID로 캘린더에 바로 반영합니다.</p>
+            <p class="muted">예약관리에서 등록/수정한 예약만 bosostudio 캘린더로 보냅니다. 캘린더에서 만든 일정은 프로그램으로 가져오지 않습니다.</p>
           </section>
 
           <section class="panel settings-panel">
