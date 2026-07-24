@@ -223,6 +223,7 @@
         </div>
         <input type="hidden" name="customerId" />
         <input type="hidden" name="visitId" />
+        <input type="hidden" name="reservationId" />
         <div class="form-section">
           <h3>촬영 내용</h3>
           <div class="form-grid">
@@ -297,6 +298,10 @@
             <label id="reservationExistingCustomerField">
               <span>고객 선택</span>
               <select name="customerId" id="reservationCustomerSelect"></select>
+            </label>
+            <label class="wide" id="reservationCustomerSearchField">
+              <span>기존 고객 검색</span>
+              <input id="reservationCustomerSearch" placeholder="이름 또는 전화번호 입력" />
             </label>
             <label class="reservation-new-customer-field" hidden><span>신규 고객명</span><input name="newCustomerName" /></label>
             <label class="reservation-new-customer-field" hidden><span>전화번호</span><input name="newCustomerPhone" /></label>

@@ -268,9 +268,10 @@ function writeStudioData(data) {
   ]));
 
   writeSheet(ss, "Visits", [
-    ["방문ID", "고객번호", "방문회차", "촬영일", "촬영종류", "촬영상품", "총금액", "계약금받은금액", "계약금결제방법", "잔금받은금액", "잔금결제방법", "잔금직원", "총받은금액", "남은금액", "정산상태", "택배여부", "메모", "사진수", "등록일"]
+    ["방문ID", "예약ID", "고객번호", "방문회차", "촬영일", "촬영종류", "촬영상품", "총금액", "계약금받은금액", "계약금결제방법", "잔금받은금액", "잔금결제방법", "잔금직원", "총받은금액", "남은금액", "정산상태", "택배여부", "메모", "사진수", "등록일"]
   ], (data.visits || []).map(v => [
     v.id || "",
+    v.reservationId || "",
     v.customerId || "",
     v.visitNo || "",
     v.date || "",
@@ -325,6 +326,7 @@ function readStudioData() {
 
     visits: readRows(ss, "Visits").map(row => ({
       id: row["방문ID"] || "",
+      reservationId: row["예약ID"] || "",
       customerId: row["고객번호"] || "",
       visitNo: Number(row["방문회차"] || 0),
       date: normalizeDate(row["촬영일"]),
