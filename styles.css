@@ -22,7 +22,6 @@ body {
   color: var(--ink);
   font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   background: var(--bg);
-  overflow-x: hidden;
 }
 
 button,
@@ -147,8 +146,6 @@ h2 {
 
 .metric,
 .panel {
-  min-width: 0;
-  max-width: 100%;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel);
@@ -187,8 +184,6 @@ h2 {
   grid-template-columns: repeat(12, minmax(38px, 1fr));
   gap: 10px;
   align-items: end;
-  width: 100%;
-  min-width: 0;
   min-height: 190px;
   overflow-x: auto;
   padding-top: 8px;
@@ -240,10 +235,6 @@ h2 {
   gap: 12px;
 }
 
-.button-row {
-  flex-wrap: wrap;
-}
-
 .panel-head {
   justify-content: space-between;
   margin-bottom: 14px;
@@ -264,7 +255,6 @@ label {
 input,
 textarea,
 select {
-  min-width: 0;
   width: 100%;
   border: 1px solid #ccd2da;
   border-radius: 8px;
@@ -296,7 +286,6 @@ textarea {
   justify-content: center;
   gap: 8px;
   white-space: nowrap;
-  max-width: 100%;
 }
 
 .primary-button {
@@ -361,7 +350,6 @@ textarea {
   align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
-  min-width: 0;
 }
 
 .reservation-actions {
@@ -371,7 +359,6 @@ textarea {
 
 .item-title {
   font-weight: 800;
-  overflow-wrap: anywhere;
 }
 
 .item-meta {
@@ -379,7 +366,6 @@ textarea {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
-  overflow-wrap: anywhere;
 }
 
 .fixed-first-shoot {
@@ -413,7 +399,6 @@ textarea {
 .badge {
   display: inline-flex;
   align-items: center;
-  flex: 0 0 auto;
   min-height: 24px;
   border-radius: 999px;
   padding: 0 9px;
@@ -525,7 +510,6 @@ textarea {
 
 dialog {
   width: min(760px, calc(100vw - 32px));
-  max-height: calc(100dvh - 24px);
   border: 0;
   border-radius: 8px;
   padding: 0;
@@ -538,8 +522,6 @@ dialog::backdrop {
 
 .modal-form {
   padding: 20px;
-  max-height: calc(100dvh - 24px);
-  overflow-y: auto;
 }
 
 .modal-head {
@@ -663,183 +645,22 @@ dialog::backdrop {
 
 @media (max-width: 640px) {
   .main {
-    padding: 14px;
-  }
-
-  h1 {
-    font-size: 22px;
-  }
-
-  h2 {
-    font-size: 16px;
+    padding: 18px;
   }
 
   .topbar,
-  .detail-header,
-  .panel-head,
-  .item-top {
+  .detail-header {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .topbar {
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-
-  #pageSubTitle {
-    font-size: 13px;
-    line-height: 1.45;
-  }
-
-  .sidebar {
-    padding: 12px 10px 10px;
-  }
-
-  .brand {
-    gap: 9px;
-    margin-bottom: 10px;
-  }
-
-  .brand-mark {
-    width: 36px;
-    height: 36px;
-  }
-
   .nav {
-    display: flex;
     overflow-x: auto;
-    gap: 8px;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-  }
-
-  .nav::-webkit-scrollbar {
-    display: none;
-  }
-
-  .nav-button {
-    flex: 0 0 auto;
-    min-height: 38px;
-    min-width: 86px;
-    padding: 0 10px;
-    font-size: 13px;
-  }
-
-  .metric-grid {
-    gap: 10px;
-  }
-
-  .revenue-chart {
-    display: flex;
-    overflow-x: auto;
-    padding-bottom: 6px;
-  }
-
-  .revenue-bar-item {
-    flex: 0 0 42px;
-  }
-
-  .metric,
-  .panel {
-    padding: 14px;
-  }
-
-  .metric strong {
-    font-size: 23px;
-  }
-
-  .toolbar,
-  .button-row {
-    align-items: stretch;
-    gap: 8px;
-  }
-
-  .toolbar > *,
-  .button-row > *,
-  .topbar .primary-button,
-  .topbar .secondary-button,
-  .file-button {
-    width: 100%;
-  }
-
-  .search-box {
-    min-width: 0;
+    grid-template-columns: repeat(4, 112px);
   }
 
   .form-grid,
   .detail-grid {
     grid-template-columns: 1fr;
-  }
-
-  .customer-layout {
-    gap: 12px;
-  }
-
-  .customer-list-panel,
-  .detail-panel {
-    min-height: 0;
-  }
-
-  .detail-grid {
-    gap: 8px;
-  }
-
-  .info-box {
-    padding: 10px;
-  }
-
-  .reservation-actions {
-    flex-direction: row;
-    justify-content: stretch;
-  }
-
-  .reservation-actions .secondary-button {
-    flex: 1 1 0;
-    min-width: 0;
-  }
-
-  dialog {
-    width: calc(100vw - 16px);
-    max-height: calc(100dvh - 16px);
-  }
-
-  .modal-form {
-    padding: 14px;
-    max-height: calc(100dvh - 16px);
-  }
-
-  .form-section {
-    padding: 12px;
-  }
-
-  .script-box {
-    font-size: 11px;
-  }
-
-  .toast {
-    right: 10px;
-    bottom: 10px;
-    left: 10px;
-    text-align: center;
-  }
-}
-
-@media (max-width: 380px) {
-  .main {
-    padding: 10px;
-  }
-
-  .panel,
-  .metric {
-    padding: 12px;
-  }
-
-  .primary-button,
-  .secondary-button,
-  .ghost-button,
-  .file-button {
-    padding: 0 10px;
-    font-size: 13px;
   }
 }
