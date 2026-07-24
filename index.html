@@ -284,8 +284,29 @@
           <h2>예약 등록</h2>
           <button value="cancel" class="icon-button" type="button" data-close-modal="reservationModal">×</button>
         </div>
-        <div class="form-grid">
-          <label><span>고객 선택</span><select name="customerId" id="reservationCustomerSelect" required></select></label>
+        <div class="form-section">
+          <h3>고객 연결</h3>
+          <div class="form-grid">
+            <label>
+              <span>고객 구분</span>
+              <select name="customerMode" id="reservationCustomerMode">
+                <option value="existing">기존 고객</option>
+                <option value="new">신규 고객</option>
+              </select>
+            </label>
+            <label id="reservationExistingCustomerField">
+              <span>고객 선택</span>
+              <select name="customerId" id="reservationCustomerSelect"></select>
+            </label>
+            <label class="reservation-new-customer-field" hidden><span>신규 고객명</span><input name="newCustomerName" /></label>
+            <label class="reservation-new-customer-field" hidden><span>전화번호</span><input name="newCustomerPhone" /></label>
+            <label class="reservation-new-customer-field" hidden><span>아이 이름</span><input name="newChildName" /></label>
+            <label class="reservation-new-customer-field" hidden><span>주소</span><input name="newAddress" /></label>
+          </div>
+        </div>
+        <div class="form-section">
+          <h3>예약 내용</h3>
+          <div class="form-grid">
           <label><span>예약일</span><input type="date" name="date" required /></label>
           <label><span>시간</span><input type="time" name="time" required /></label>
           <label>
@@ -311,6 +332,7 @@
             </select>
           </label>
           <label class="wide"><span>예약 메모</span><textarea name="memo" rows="3"></textarea></label>
+          </div>
         </div>
         <div class="button-row end">
           <button class="secondary-button" type="button" data-close-modal="reservationModal">취소</button>

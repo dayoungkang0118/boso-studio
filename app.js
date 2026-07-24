@@ -118,6 +118,24 @@ function migrateState() {
   state.reservations.forEach((reservation) => {
     if (idMap.has(reservation.customerId)) reservation.customerId = idMap.get(reservation.customerId);
   });
+
+  removeCalendarImportedData();
+}
+
+function removeCalendarImportedData() {
+  const importedCustomerIds = new Set(
+    state.customers
+      .filter((customer) => String(customer.memo || "").includes("Google Calendar에서 가져온 고객"))
+      .map((customer) => customer.id)
+  );
+
+  state.customers = state.customers.filter((customer) => !importedCustomerIds.has(customer.id));
+  state.reservations = state.reservations.filter((reservation) => {
+    const importedReservation = String(reservation.id || "").startsWith("cal-") || importedCustomerIds.has(reservation.customerId);
+    return !importedReservation;
+  });
+
+  if (importedCustomerIds.has(state.selectedCustomerId)) state.selectedCustomerId = null;
 }
 
 function seedSampleData() {
@@ -199,6 +217,7 @@ function bindEvents() {
     $("#reservationForm").reset();
     delete $("#reservationForm").dataset.reservationId;
     fillCustomerSelect();
+    setReservationCustomerMode(state.customers.length ? "existing" : "new");
     $("#reservationForm").date.value = toDateInput(new Date());
     $("#reservationModal").showModal();
   });
@@ -210,6 +229,7 @@ function bindEvents() {
   $("#customerSearch").addEventListener("input", renderCustomers);
   $("#shootTypeFilter").addEventListener("change", renderCustomers);
   $("#reservationSearch").addEventListener("input", renderReservations);
+  $("#reservationCustomerMode").addEventListener("change", (event) => setReservationCustomerMode(event.target.value));
 
   $("#customerForm").addEventListener("submit", handleCustomerSubmit);
   $("#visitForm").addEventListener("submit", handleVisitSubmit);
@@ -641,9 +661,12 @@ async function handleReservationSubmit(event) {
   const form = new FormData(event.currentTarget);
   const reservationId = formElement.dataset.reservationId;
   const existingReservation = state.reservations.find((item) => item.id === reservationId);
+  const customerId = getReservationCustomerId(form, existingReservation);
+  if (!customerId) return;
+
   const reservation = {
     id: existingReservation?.id || newId(),
-    customerId: form.get("customerId"),
+    customerId,
     date: form.get("date"),
     time: form.get("time"),
     shootType: form.get("shootType"),
@@ -689,6 +712,7 @@ function openReservationEditor(reservationId) {
   const form = $("#reservationForm");
   form.reset();
   fillCustomerSelect();
+  setReservationCustomerMode("existing");
   form.dataset.reservationId = reservation.id;
   form.customerId.value = reservation.customerId;
   form.date.value = reservation.date;
@@ -716,9 +740,59 @@ async function deleteReservation(reservationId) {
 
 function fillCustomerSelect() {
   const select = $("#reservationCustomerSelect");
-  select.innerHTML = state.customers
+  select.innerHTML = state.customers.length
+    ? state.customers
     .map((customer) => `<option value="${customer.id}">${escapeHtml(customer.name)} · ${escapeHtml(customer.phone)} · ${customer.id}</option>`)
-    .join("");
+    .join("")
+    : `<option value="">등록된 고객 없음</option>`;
+}
+
+function setReservationCustomerMode(mode) {
+  const form = $("#reservationForm");
+  const selectedMode = mode === "new" ? "new" : "existing";
+  form.customerMode.value = selectedMode;
+  const isNew = selectedMode === "new";
+
+  $("#reservationExistingCustomerField").hidden = isNew;
+  $$(".reservation-new-customer-field").forEach((field) => {
+    field.hidden = !isNew;
+  });
+
+  form.customerId.required = !isNew;
+  form.newCustomerName.required = isNew;
+  form.newCustomerPhone.required = isNew;
+}
+
+function getReservationCustomerId(form, existingReservation) {
+  if (form.get("customerMode") !== "new") {
+    const customerId = form.get("customerId");
+    if (customerId) return customerId;
+    showToast("예약을 연결할 고객을 선택해주세요.");
+    return "";
+  }
+
+  const name = form.get("newCustomerName").trim();
+  const phone = form.get("newCustomerPhone").trim();
+  if (!name || !phone) {
+    showToast("신규 고객명과 전화번호를 입력해주세요.");
+    return "";
+  }
+
+  const existingCustomer = state.customers.find((customer) => normalize(customer.phone) === normalize(phone));
+  if (existingCustomer && !existingReservation) return existingCustomer.id;
+
+  const customer = {
+    id: nextCustomerId(),
+    name,
+    phone,
+    childName: form.get("newChildName").trim(),
+    childInfo: "",
+    address: form.get("newAddress").trim(),
+    memo: "예약 등록 시 생성한 고객",
+    createdAt: new Date().toISOString(),
+  };
+  state.customers.unshift(customer);
+  return customer.id;
 }
 
 function saveWebhook() {
