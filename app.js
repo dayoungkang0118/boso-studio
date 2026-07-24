@@ -6,6 +6,7 @@ const DEFAULT_CALENDAR_ID = "cf68d0dee8e4775e5f4ccd99b64727c9932f5512b08e8e7f8aa
 const DEFAULT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbzMdYQeGIAB-MnvxRMI_orjFUczKTI3BCQLZ0lkSuGANkTDuQflYStN86weDpfksHlt/exec";
 const CALENDAR_PULL_INTERVAL_MS = 60 * 1000;
 let calendarPullTimer = null;
+let cloudSyncTimer = null;
 
 const state = {
   customers: [],
@@ -197,6 +198,7 @@ async function init() {
 
   bindEvents();
   renderAll();
+  syncFromSheetsOnStartup();
 }
 
 function bindEvents() {
@@ -632,6 +634,7 @@ function handleCustomerSubmit(event) {
   }
   state.selectedCustomerId = customer.id;
   saveState();
+  queueCloudSync();
   $("#customerModal").close();
   delete formElement.dataset.customerId;
   renderAll();
@@ -699,6 +702,7 @@ async function handleVisitSubmit(event) {
     state.visits.unshift(visit);
   }
   saveState();
+  queueCloudSync();
   $("#visitModal").close();
   renderAll();
   showToast(existingVisit ? "촬영 기록이 수정되었습니다." : "방문 기록이 저장되었습니다.");
@@ -739,6 +743,7 @@ async function handleReservationSubmit(event) {
   renderAll();
   switchView(returnView);
   const calendarSynced = await syncCalendarAfterReservation(reservation);
+  queueCloudSync();
   const actionText = existingReservation ? "수정" : "등록";
   showToast(calendarSynced ? `예약이 ${actionText}되고 Google Calendar에 반영되었습니다.` : `예약은 ${actionText}됐지만 Google Calendar 반영은 실패했습니다.`);
 }
@@ -786,6 +791,7 @@ async function deleteReservation(reservationId) {
   const calendarSynced = await syncCalendarAfterReservation(calendarReservation);
   state.reservations = state.reservations.filter((item) => item.id !== reservationId);
   saveState();
+  queueCloudSync();
   renderAll();
   showToast(calendarSynced ? "예약을 삭제하고 Google Calendar에서도 정리했습니다." : "예약은 삭제됐지만 Google Calendar 정리는 실패했습니다.");
 }
@@ -862,10 +868,11 @@ function saveCalendarSettings(showMessage = true) {
   if (showMessage) showToast("캘린더 설정이 저장되었습니다.");
 }
 
-async function pushSheets() {
+async function pushSheets(options = {}) {
+  const silent = Boolean(options.silent);
   const url = state.settings.sheetWebhookUrl || $("#sheetWebhookUrl").value.trim() || DEFAULT_WEBHOOK_URL;
   if (!url) {
-    showToast("Apps Script 웹앱 URL을 먼저 입력하세요.");
+    if (!silent) showToast("Apps Script 웹앱 URL을 먼저 입력하세요.");
     return;
   }
 
@@ -886,9 +893,11 @@ async function pushSheets() {
       headers: { "Content-Type": "text/plain;charset=utf-8" },
       body: JSON.stringify(payload),
     });
-    showToast("Google Sheets로 전송했습니다.");
+    if (!silent) showToast("Google Sheets로 전송했습니다.");
+    return true;
   } catch {
-    showToast("전송에 실패했습니다. URL과 배포 권한을 확인하세요.");
+    if (!silent) showToast("전송에 실패했습니다. URL과 배포 권한을 확인하세요.");
+    return false;
   }
 }
 
@@ -901,25 +910,7 @@ async function pullSheets() {
 
   try {
     const data = await fetchSheetJsonp(url);
-    state.customers = data.customers || [];
-    state.visits = (data.visits || []).map((visit) => ({
-      photos: [],
-      createdAt: new Date().toISOString(),
-      ...visit,
-      id: visit.id || newId(),
-      totalAmount: Number(visit.totalAmount || Number(visit.deposit || 0) + Number(visit.balance || 0)),
-      deposit: Number(visit.deposit || 0),
-      balance: Number(visit.balance || 0),
-      depositPaymentMethod: Number(visit.deposit || 0) > 0 ? "계좌" : "미결제",
-      balancePaymentMethod: visit.balancePaymentMethod || "미결제",
-      balancePaymentStaff: visit.balancePaymentStaff || "",
-      deliveryStatus: visit.deliveryStatus || "없음",
-    }));
-    state.reservations = (data.reservations || []).map((reservation) => ({
-      createdAt: new Date().toISOString(),
-      ...reservation,
-      id: reservation.id || newId(),
-    }));
+    applySheetData(data);
     state.settings.sheetWebhookUrl = url;
     state.selectedCustomerId = null;
     saveState();
@@ -928,6 +919,62 @@ async function pullSheets() {
   } catch {
     showToast("가져오기에 실패했습니다. Apps Script 배포 상태를 확인하세요.");
   }
+}
+
+async function syncFromSheetsOnStartup() {
+  const url = state.settings.sheetWebhookUrl || DEFAULT_WEBHOOK_URL;
+  if (!url) return;
+
+  try {
+    const data = await fetchSheetJsonp(url);
+    if (!hasSheetData(data)) return;
+    applySheetData(data);
+    state.settings.sheetWebhookUrl = url;
+    state.selectedCustomerId = state.customers.some((customer) => customer.id === state.selectedCustomerId) ? state.selectedCustomerId : null;
+    saveState();
+    renderAll();
+  } catch {
+    // Keep local browser data when the shared sheet is temporarily unavailable.
+  }
+}
+
+function applySheetData(data) {
+  state.customers = (data.customers || []).map((customer) => ({
+    address: "",
+    memo: "",
+    createdAt: new Date().toISOString(),
+    ...customer,
+  }));
+  state.visits = (data.visits || []).map((visit) => ({
+    photos: [],
+    createdAt: new Date().toISOString(),
+    ...visit,
+    id: visit.id || newId(),
+    totalAmount: Number(visit.totalAmount || Number(visit.deposit || 0) + Number(visit.balance || 0)),
+    deposit: Number(visit.deposit || 0),
+    balance: Number(visit.balance || 0),
+    depositPaymentMethod: Number(visit.deposit || 0) > 0 ? "계좌" : "미결제",
+    balancePaymentMethod: visit.balancePaymentMethod || "미결제",
+    balancePaymentStaff: visit.balancePaymentStaff || "",
+    deliveryStatus: visit.deliveryStatus || "없음",
+  }));
+  state.reservations = (data.reservations || []).map((reservation) => ({
+    createdAt: new Date().toISOString(),
+    ...reservation,
+    id: reservation.id || newId(),
+  }));
+  migrateState();
+}
+
+function hasSheetData(data) {
+  return Boolean((data.customers || []).length || (data.visits || []).length || (data.reservations || []).length);
+}
+
+function queueCloudSync() {
+  if (cloudSyncTimer) window.clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = window.setTimeout(() => {
+    pushSheets({ silent: true });
+  }, 800);
 }
 
 async function pushCalendar(options = {}) {
@@ -1278,6 +1325,7 @@ function importJson(event) {
       state.selectedCustomerId = null;
       migrateState();
       saveState();
+      queueCloudSync();
       $("#sheetWebhookUrl").value = state.settings.sheetWebhookUrl || DEFAULT_WEBHOOK_URL;
       $("#calendarId").value = state.settings.calendarId || DEFAULT_CALENDAR_ID;
       $("#calendarDuration").value = state.settings.calendarDuration || 60;
