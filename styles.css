@@ -369,6 +369,17 @@ textarea {
   margin-top: 12px;
 }
 
+.timeline-divider {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 8px 2px 4px;
+  color: var(--accent-strong);
+  background: var(--bg);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .item-title {
   font-weight: 800;
   overflow-wrap: anywhere;

@@ -132,7 +132,7 @@ function removeCalendarImportedData() {
 
   state.customers = state.customers.filter((customer) => !importedCustomerIds.has(customer.id));
   state.reservations = state.reservations.filter((reservation) => {
-    const importedReservation = String(reservation.id || "").startsWith("cal-") || importedCustomerIds.has(reservation.customerId);
+    const importedReservation = importedCustomerIds.has(reservation.customerId);
     return !importedReservation;
   });
 
@@ -534,17 +534,27 @@ function renderVisitSummary(visit) {
 
 function renderReservations() {
   const query = normalize($("#reservationSearch").value);
-  const reservations = getReservationTimelineItems()
+  const timelineItems = getReservationTimelineItems()
     .filter((reservation) => {
       const customer = getCustomer(reservation.customerId);
       const haystack = normalize([customer?.name, customer?.phone, reservation.shootType, reservation.productName, reservation.staff, reservation.memo].join(" "));
       return !query || haystack.includes(query);
     })
-    .sort((a, b) => `${a.date} ${a.time || ""}`.localeCompare(`${b.date} ${b.time || ""}`));
+    .sort(compareTimelineItems);
 
-  $("#reservationList").innerHTML = reservations.length
-    ? reservations.map(renderReservationItem).join("")
+  $("#reservationList").innerHTML = timelineItems.length
+    ? renderReservationTimeline(timelineItems)
     : `<div class="empty-state">예약이 없습니다.</div>`;
+}
+
+function renderReservationTimeline(items) {
+  let currentMonth = "";
+  return items.map((item) => {
+    const month = getTimelineMonth(item.date);
+    const divider = month !== currentMonth ? `<div class="timeline-divider">${escapeHtml(month)}</div>` : "";
+    currentMonth = month;
+    return divider + renderReservationItem(item);
+  }).join("");
 }
 
 function getReservationTimelineItems() {
@@ -567,6 +577,18 @@ function getReservationTimelineItems() {
   }));
 
   return [...reservationItems, ...visitItems];
+}
+
+function compareTimelineItems(a, b) {
+  const dateCompare = String(a.date || "").localeCompare(String(b.date || ""));
+  if (dateCompare) return dateCompare;
+  const timeCompare = String(a.time || "00:00").localeCompare(String(b.time || "00:00"));
+  if (timeCompare) return timeCompare;
+  return getTimelineTypeOrder(a) - getTimelineTypeOrder(b);
+}
+
+function getTimelineTypeOrder(item) {
+  return item.itemType === "visit" ? 0 : 1;
 }
 
 function renderReservationItem(reservation) {
@@ -1426,6 +1448,12 @@ function formatDate(value) {
   if (!value) return "-";
   const [year, month, day] = value.split("-");
   return `${year}.${month}.${day}`;
+}
+
+function getTimelineMonth(value) {
+  if (!value) return "날짜 미정";
+  const [year, month] = value.split("-");
+  return `${year}.${month}`;
 }
 
 function toMonthKey(date) {
